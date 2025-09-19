@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exercice 1 — Géolocalisation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
+      color: #222;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .card {
+      background: #fff;
+      padding: 20px;
+      margin: 20px auto;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      max-width: 600px;
+    }
+    pre {
+      background: #f0f0f0;
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+    .status {
+      font-size: 0.9em;
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌍 Exercice 1 — Géolocalisation</h1>
+
+  <div class="card">
+    <h2>Position via getCurrentPosition()</h2>
+    <div id="current"></div>
+  </div>
+
+  <div class="card">
+    <h2>Position en temps réel via watchPosition()</h2>
+    <div id="watch"></div>
+  </div>
+
+  <script>
+    function formatPosition(pos) {
+      const c = pos.coords;
+      return `Longitude: ${c.longitude}
+Latitude: ${c.latitude}
+Altitude: ${c.altitude ?? 'N/A'}
+Précision: ${c.accuracy} m
+Vitesse: ${c.speed ?? 'N/A'} m/s
+Date: ${new Date(pos.timestamp).toLocaleString()}`;
+    }
+
+    const currentDiv = document.getElementById('current');
+    const watchDiv = document.getElementById('watch');
+
+    // getCurrentPosition
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          currentDiv.innerHTML = `<pre>${formatPosition(pos)}</pre>`;
+        },
+        err => {
+          currentDiv.innerHTML = `<p class="status">Erreur: ${err.message}</p>`;
+        }
+      );
+
+      // watchPosition
+      navigator.geolocation.watchPosition(
+        pos => {
+          watchDiv.innerHTML = `<pre>${formatPosition(pos)}</pre>`;
+        },
+        err => {
+          watchDiv.innerHTML = `<p class="status">Erreur: ${err.message}</p>`;
+        }
+      );
+    } else {
+      currentDiv.innerHTML = '<p class="status">La géolocalisation n\'est pas supportée par ce navigateur.</p>';
+      watchDiv.innerHTML = '<p class="status">La géolocalisation n\'est pas supportée par ce navigateur.</p>';
+    }
+  </script>
+</body>
+</html>
