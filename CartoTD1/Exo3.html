@@ -3,94 +3,225 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Exercice 3 — Leaflet Plus</title>
+  <title>Exercice 3 — Leaflet Plus (GeoJSON & Trajets)</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    header {
-      background: #34495e;
-      color: #fff;
-      padding: 10px;
-      text-align: center;
-    }
-    #map {
-      flex: 1;
-      height: 100vh;
-      min-height: 400px;
-    }
+    :root{--bg:#f6f8fb;--header:#34495e}
+    html,body,#map{height:100%;margin:0}
+    body{display:flex;flex-direction:column;font-family:Inter,Segoe UI,Roboto,Arial;background:var(--bg)}
+    header{background:var(--header);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    header h1{font-size:1rem;margin:0}
+    .tools{display:flex;gap:8px;align-items:center}
+    .tools input[type="file"]{display:none}
+    .btn{background:#fff;color:var(--header);border-radius:8px;padding:8px 10px;text-decoration:none;border:none;cursor:pointer;font-weight:600}
+    .btn.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.12)}
+    #map{flex:1}
+    .panel{position:absolute;left:12px;top:72px;z-index:1000;background:rgba(255,255,255,0.95);padding:10px;border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,0.12);max-width:320px}
+    .panel h3{margin:0 0 8px 0;font-size:14px}
+    .panel p{margin:0 0 8px 0;font-size:13px;color:#333}
+    .small{font-size:12px;color:#555}
+    footer{padding:10px;text-align:center;font-size:13px;color:#666}
+    @media (max-width:640px){.panel{left:8px;right:8px;top:auto;bottom:12px}}
   </style>
 </head>
 <body>
   <header>
-    <h1>🌐 Exercice 3 — Leaflet Plus</h1>
+    <h1>🌐 Exo3 — Leaflet Plus — GeoJSON & trajets</h1>
+    <div class="tools">
+      <label class="btn" id="showSample">Afficher sample GeoJSON</label>
+      <label class="btn ghost" id="toggleRoute">Afficher/masquer trajet</label>
+      <label class="btn" id="fileLabel">Importer .geojson
+        <input id="fileInput" type="file" accept=".geojson,application/geo+json,application/json">
+      </label>
+      <input id="urlInput" placeholder="URL GeoJSON" style="padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);min-width:180px">
+      <button class="btn" id="fetchUrl">Charger</button>
+    </div>
   </header>
+
   <div id="map"></div>
+
+  <div class="panel" id="infoPanel" aria-live="polite">
+    <h3>Instructions</h3>
+    <p class="small">Cette page affiche :<br>- un GeoJSON exemple (points, ligne),<br>- les trajets (LineString) et leur distance calculée,<br>- possibilité d'importer un .geojson ou de charger une URL GeoJSON.</p>
+    <div id="messages"></div>
+  </div>
+
+  <footer>TD — Leaflet • Exo3 — préparez vos GeoJSON</footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Initialisation carte avec Stamen
-    const map = L.map('map').setView([43.7, 7.26], 7);
+    // --- utilitaires ---
+    const msg = (t)=>{document.getElementById('messages').innerHTML = '<p class="small">'+t+'</p>'}
 
-    L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}{r}.png', {
-      attribution: 'Map tiles by <a href="https://stamen.com/">Stamen Design</a>, <a href="https://www.openstreetmap.org/">OpenStreetMap</a>',
-      subdomains: 'abcd',
-      minZoom: 0,
-      maxZoom: 20
-    }).addTo(map);
-
-    // Position Nice
-    const nice = [43.7009358, 7.2683912];
-    L.marker(nice).addTo(map).bindPopup('📍 Nice');
-
-    // Position Marseille
-    const marseille = [43.2965, 5.3698];
-    L.marker(marseille).addTo(map).bindPopup('📍 Marseille');
-
-    // Géolocalisation utilisateur
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          const acc = pos.coords.accuracy;
-
-          // Marqueur utilisateur
-          const userMarker = L.marker([lat, lon]).addTo(map).bindPopup('📱 Vous').openPopup();
-
-          // Cercle représentant la précision
-          L.circle([lat, lon], {radius: acc, color: 'blue', opacity: 0.5}).addTo(map);
-
-          // Segment Marseille - position utilisateur
-          L.polyline([marseille, [lat, lon]], {color: 'green'}).addTo(map);
-
-          // Distance Marseille - utilisateur (approx via formule haversine)
-          function haversine(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // rayon Terre en m
-            const toRad = x => x * Math.PI/180;
-            const φ1 = toRad(lat1), φ2 = toRad(lat2);
-            const Δφ = toRad(lat2-lat1);
-            const Δλ = toRad(lon2-lon1);
-            const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
-            const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c; // en m
-          }
-
-          const d = haversine(lat, lon, marseille[0], marseille[1]);
-          userMarker.bindPopup(`📱 Vous<br>Distance de Marseille : ${(d/1000).toFixed(2)} km`).openPopup();
-
-          map.setView([lat, lon], 8);
-        },
-        err => {
-          alert("Erreur géolocalisation: " + err.message);
-        }
-      );
+    function haversine(lon1, lat1, lon2, lat2){
+      const R = 6371e3; // m
+      const toRad = v=>v*Math.PI/180;
+      const φ1 = toRad(lat1), φ2 = toRad(lat2);
+      const Δφ = toRad(lat2-lat1), Δλ = toRad(lon2-lon1);
+      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+      const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R*c; // meters
     }
+
+    function lineLengthMeters(coords){
+      let d = 0;
+      for(let i=1;i<coords.length;i++){
+        d += haversine(coords[i-1][0], coords[i-1][1], coords[i][0], coords[i][1]);
+      }
+      return d;
+    }
+
+    // --- map ---
+    const map = L.map('map').setView([43.7, 7.26], 8);
+
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+    const stamen = L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}{r}.png', {attribution:'Stamen Design'});
+
+    const baseLayers = { 'OpenStreetMap': osm, 'Stamen Toner Lite': stamen };
+    L.control.layers(baseLayers).addTo(map);
+
+    // groups
+    const geojsonLayer = L.geoJSON(null, {onEachFeature:onEachFeature, style:styleFeature}).addTo(map);
+    const routeLayer = L.layerGroup().addTo(map);
+    const userLayer = L.layerGroup().addTo(map);
+
+    // sample GeoJSON (lon,lat order)
+    const sampleGeoJSON = {
+      "type":"FeatureCollection",
+      "features":[
+        {"type":"Feature","properties":{"name":"Nice","popup":"Nice — centre ville","marker-color":"#2a9d8f"},"geometry":{"type":"Point","coordinates":[7.2683912,43.7009358]}},
+        {"type":"Feature","properties":{"name":"Marseille","popup":"Marseille — centre ville","marker-color":"#e76f51"},"geometry":{"type":"Point","coordinates":[5.3698,43.2965]}},
+        {"type":"Feature","properties":{"name":"Trajet sample","popup":"Trajet Nice → Marseille","stroke":"#ff6600","type":"route"},"geometry":{"type":"LineString","coordinates":[[7.2683912,43.7009358],[6.75,43.55],[6.25,43.35],[5.3698,43.2965]]}},
+        {"type":"Feature","properties":{"name":"Zone exemple","popup":"Zone polygonale"},"geometry":{"type":"Polygon","coordinates":[[[7.05,43.85],[7.35,43.85],[7.35,43.65],[7.05,43.65],[7.05,43.85]]]} }
+      ]
+    };
+
+    // styles
+    function styleFeature(feature){
+      if(feature.geometry.type === 'LineString') return {color: feature.properties?.stroke || '#3388ff', weight:4};
+      if(feature.geometry.type === 'Polygon') return {color:'#6a994e', weight:2, fillOpacity:0.15};
+      return {};
+    }
+
+    function onEachFeature(feature, layer){
+      let p = feature.properties || {};
+      if(p.popup){ layer.bindPopup(p.popup); }
+
+      // if LineString and marked as route -> add distance popup
+      if(feature.geometry && feature.geometry.type === 'LineString'){
+        try{
+          const coords = feature.geometry.coordinates; // [lon,lat]
+          const d = lineLengthMeters(coords);
+          layer.bindPopup((p.popup||'Trajet') + '<br><b>Longueur :</b> ' + (d/1000).toFixed(2) + ' km');
+        }catch(e){console.warn(e)}
+      }
+
+      // style points as circular markers
+      if(feature.geometry && feature.geometry.type === 'Point'){
+        const c = feature.geometry.coordinates;
+        const marker = L.circleMarker([c[1], c[0]], {radius:8, fill:true, fillOpacity:0.9, color:'#fff', weight:1}).bindPopup(p.popup||p.name||'Point');
+        layer.replaceWith(marker);
+      }
+    }
+
+    // load sample on demand
+    document.getElementById('showSample').addEventListener('click', ()=>{
+      geojsonLayer.clearLayers();
+      geojsonLayer.addData(sampleGeoJSON);
+      // fit to sample bounds
+      try{ map.fitBounds(geojsonLayer.getBounds(), {padding:[40,40]}); }catch(e){ }
+      msg('GeoJSON exemple chargé — contient ' + sampleGeoJSON.features.length + ' features.');
+    });
+
+    // toggle route: find LineString features and toggle routeLayer
+    let routeVisible = true;
+    document.getElementById('toggleRoute').addEventListener('click', ()=>{
+      routeVisible = !routeVisible;
+      routeLayer.clearLayers();
+      if(routeVisible){
+        // extract LineStrings from geojsonLayer
+        geojsonLayer.eachLayer(l=>{
+          const f = l.feature;
+          if(f && f.geometry && f.geometry.type === 'LineString'){
+            const coords = f.geometry.coordinates.map(c=>[c[1], c[0]]);
+            const pl = L.polyline(coords, {color: f.properties?.stroke || '#ff6600', weight:4}).addTo(routeLayer);
+            pl.bindPopup(f.properties?.popup || 'Trajet');
+          }
+        });
+        msg('Trajets affichés');
+      } else {
+        msg('Trajets masqués');
+      }
+    });
+
+    // file import
+    document.getElementById('fileInput').addEventListener('change', (e)=>{
+      const f = e.target.files[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        try{
+          const data = JSON.parse(reader.result);
+          geojsonLayer.addData(data);
+          map.fitBounds(geojsonLayer.getBounds(), {padding:[40,40]});
+          msg('Fichier GeoJSON importé: ' + (f.name || 'upload'));
+        }catch(err){ alert('Impossible de parser le GeoJSON: '+err); }
+      };
+      reader.readAsText(f);
+    });
+
+    // fetch from URL
+    document.getElementById('fetchUrl').addEventListener('click', async ()=>{
+      const url = document.getElementById('urlInput').value.trim();
+      if(!url) return msg('Entrez une URL GeoJSON valide.');
+      msg('Chargement en cours...');
+      try{
+        const res = await fetch(url);
+        if(!res.ok) throw new Error(res.status + ' ' + res.statusText);
+        const data = await res.json();
+        geojsonLayer.addData(data);
+        map.fitBounds(geojsonLayer.getBounds(), {padding:[40,40]});
+        msg('GeoJSON chargé depuis URL');
+      }catch(err){ msg('Erreur chargement: ' + err.message); }
+    });
+
+    // user geolocation + draw segments to Nice/Marseille + trace a small trajectory example
+    if(navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(pos=>{
+        const lat = pos.coords.latitude, lon = pos.coords.longitude, acc = pos.coords.accuracy;
+        userLayer.clearLayers();
+        const m = L.marker([lat,lon]).addTo(userLayer).bindPopup('Vous — précision: '+(acc?acc+' m':'N/A'));
+        L.circle([lat,lon], {radius: acc||50, color:'#3388ff', opacity:0.35}).addTo(userLayer);
+
+        // polyline: user -> Marseille
+        const marseille = [43.2965,5.3698];
+        const nice = [43.7009358,7.2683912];
+        const lineUM = L.polyline([[lat,lon], marseille], {color:'#2ecc71', weight:3, dashArray:'6,6'}).addTo(userLayer).bindPopup('Distance → Marseille');
+        const dUM = haversine(lon,lat,5.3698,43.2965);
+        lineUM.bindPopup('Distance vers Marseille: ' + (dUM/1000).toFixed(2) + ' km');
+
+        const lineUN = L.polyline([[lat,lon], nice], {color:'#f39c12', weight:3, dashArray:'6,6'}).addTo(userLayer).bindPopup('Distance → Nice');
+        const dUN = haversine(lon,lat,7.2683912,43.7009358);
+        lineUN.bindPopup('Distance vers Nice: ' + (dUN/1000).toFixed(2) + ' km');
+
+        // small simulated trajectory (trajet local) - you can replace by real GeoJSON
+        const trajCoords = [[lat,lon],[lat+0.01, lon-0.02],[lat+0.02, lon-0.015]];
+        const traj = L.polyline(trajCoords, {color:'#9b59b6', weight:4}).addTo(routeLayer).bindPopup('Trajet simulé — ' + (lineLengthMeters(trajCoords.map(c=>[c[1],c[0]]))/1000).toFixed(2) + ' km');
+
+        map.fitBounds(L.featureGroup([userLayer, routeLayer, geojsonLayer]).getBounds(), {padding:[40,40]});
+
+        msg('Position utilisateur détectée.');
+      }, err=>{
+        msg('Géolocalisation refusée ou erreur: ' + err.message);
+      }, {enableHighAccuracy:true, timeout:10000});
+    } else {
+      msg('Géolocalisation non supportée par le navigateur.');
+    }
+
+    // automatically show sample on load
+    geojsonLayer.addData(sampleGeoJSON);
+    try{ map.fitBounds(geojsonLayer.getBounds(), {padding:[40,40]}); }catch(e){}
+
   </script>
 </body>
 </html>
