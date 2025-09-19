@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exercice 2 — Leaflet et Géolocalisation</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      background: #2c3e50;
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+    }
+    #map {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🗺️ Exercice 2 — Leaflet et Géolocalisation</h1>
+  </header>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialisation de la carte sur une position par défaut (Nice)
+    const map = L.map('map').setView([43.7009358, 7.2683912], 10);
+
+    // Fond de carte OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Marqueur Nice
+    const niceMarker = L.marker([43.7009358, 7.2683912]).addTo(map)
+      .bindPopup('📍 Nice — centre ville');
+
+    // Triangle des Bermudes (coordonnées approximatives)
+    const bermudaCoords = [
+      [25.0000, -71.0000], // Bahamas
+      [32.0000, -64.0000], // Bermudes
+      [18.5000, -66.0000]  // Porto Rico
+    ];
+    L.polygon(bermudaCoords, {color: 'red'}).addTo(map)
+      .bindPopup('🔺 Triangle des Bermudes');
+
+    // Géolocalisation de l'utilisateur
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          const userMarker = L.marker([lat, lon]).addTo(map)
+            .bindPopup('📱 Votre position').openPopup();
+          map.setView([lat, lon], 13);
+        },
+        err => {
+          alert("Erreur de géolocalisation: " + err.message);
+        }
+      );
+    } else {
+      alert("La géolocalisation n'est pas supportée par ce navigateur.");
+    }
+  </script>
+</body>
+</html>
