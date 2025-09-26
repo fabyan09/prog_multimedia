@@ -40,7 +40,8 @@
 <body>
     <div id="info">
         Three.js Scene - Exercice 1<br>
-        Utilisez votre smartphone pour contrôler la rotation
+        Bougez votre smartphone pour contrôler la rotation<br>
+        Les objets restent statiques quand le téléphone est à plat
     </div>
 
     <div id="container"></div>
@@ -57,7 +58,7 @@
     <script>
         // Variables globales
         let scene, camera, renderer;
-        let cube, sphere, loadedModel;
+        let cube, sphere, torus, loadedModel;
         let ambientLight, directionalLight;
         let textureLoader, gltfLoader;
 
@@ -66,6 +67,9 @@
         let rotationY = 0;
         let targetRotationX = 0;
         let targetRotationY = 0;
+        let isDeviceFlat = true;
+        let lastBeta = 0;
+        let lastGamma = 0;
 
         // Variables pour les particules
         let particleSystem;
@@ -111,6 +115,7 @@
             // Créer les objets
             createCube();
             createSphere();
+            createTorus();
             createParticles();
 
             // Charger un modèle 3D (optionnel)
@@ -136,20 +141,7 @@
             const geometry = new THREE.BoxGeometry(1, 1, 1);
 
             // Texture pour le cube
-            const texture = textureLoader.load('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-                // Callback de chargement réussi
-                function(texture) {
-                    console.log('Texture chargée');
-                },
-                // Callback de progression
-                function(progress) {
-                    console.log('Progression:', progress);
-                },
-                // Callback d'erreur
-                function(error) {
-                    console.log('Erreur de chargement texture:', error);
-                }
-            );
+            const texture = textureLoader.load('content.png');
 
             // Matériau avec texture
             const material = new THREE.MeshPhongMaterial({
@@ -170,9 +162,24 @@
             // Géométrie de la sphère
             const geometry = new THREE.SphereGeometry(0.8, 32, 32);
 
-            // Matériau coloré
+            // Charger texture de la Terre
+            const earthTexture = textureLoader.load(
+                'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev/examples/textures/planets/earth_atmos_2048.jpg',
+                function(texture) {
+                    console.log('Texture Terre chargée');
+                },
+                function(progress) {
+                    console.log('Chargement texture Terre:', progress);
+                },
+                function(error) {
+                    console.log('Erreur texture Terre, utilisation couleur de base');
+                }
+            );
+
+            // Matériau avec texture de la Terre
             const material = new THREE.MeshPhongMaterial({
-                color: 0xff6600,
+                map: earthTexture,
+                color: 0x4488ff,
                 shininess: 100,
                 specular: 0x111111
             });
@@ -183,6 +190,25 @@
             sphere.castShadow = true;
             sphere.receiveShadow = true;
             scene.add(sphere);
+        }
+
+        function createTorus() {
+            // Géométrie du tore
+            const geometry = new THREE.TorusGeometry(0.8, 0.3, 16, 100);
+
+            // Matériau avec couleur métallique
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x9932cc,
+                shininess: 150,
+                specular: 0x444444
+            });
+
+            // Créer le tore
+            torus = new THREE.Mesh(geometry, material);
+            torus.position.set(0, -2, 0);
+            torus.castShadow = true;
+            torus.receiveShadow = true;
+            scene.add(torus);
         }
 
         function createParticles() {
@@ -235,10 +261,38 @@
         }
 
         function onDeviceOrientation(event) {
-            // Utiliser l'orientation du smartphone pour contrôler la rotation
+            // Vérifier si le téléphone est relativement à plat
             if (event.gamma !== null && event.beta !== null) {
-                targetRotationY = event.gamma * 0.01;  // rotation gauche/droite
-                targetRotationX = event.beta * 0.01;   // rotation haut/bas
+                const beta = event.beta;  // inclinaison avant/arrière (-180 à 180)
+                const gamma = event.gamma; // inclinaison gauche/droite (-90 à 90)
+
+                // Seuil pour déterminer si le téléphone est à plat (en degrés)
+                const flatThreshold = 10;
+
+                // Vérifier si le téléphone est proche de la position horizontale
+                const isFlatNow = Math.abs(beta) < flatThreshold && Math.abs(gamma) < flatThreshold;
+
+                // Détecter le mouvement (changement significatif d'orientation)
+                const movementThreshold = 2;
+                const hasMovement = Math.abs(beta - lastBeta) > movementThreshold ||
+                                  Math.abs(gamma - lastGamma) > movementThreshold;
+
+                // Mettre à jour les valeurs de référence
+                lastBeta = beta;
+                lastGamma = gamma;
+
+                // Si le téléphone est à plat et sans mouvement, arrêter la rotation
+                if (isFlatNow && !hasMovement) {
+                    isDeviceFlat = true;
+                    // Ralentir progressivement la rotation vers zéro
+                    targetRotationX *= 0.95;
+                    targetRotationY *= 0.95;
+                } else {
+                    isDeviceFlat = false;
+                    // Appliquer la rotation basée sur l'orientation
+                    targetRotationY = gamma * 0.01;  // rotation gauche/droite
+                    targetRotationX = beta * 0.01;   // rotation haut/bas
+                }
             }
         }
 
@@ -283,15 +337,26 @@
             rotationX += (targetRotationX - rotationX) * 0.05;
             rotationY += (targetRotationY - rotationY) * 0.05;
 
-            // Rotation automatique + contrôle smartphone
+            // Rotation seulement si le téléphone bouge
             if (cube) {
-                cube.rotation.x += 0.01 + rotationX;
-                cube.rotation.y += 0.01 + rotationY;
+                if (!isDeviceFlat) {
+                    cube.rotation.x += rotationX;
+                    cube.rotation.y += rotationY;
+                }
             }
 
             if (sphere) {
-                sphere.rotation.x += 0.005 - rotationX * 0.5;
-                sphere.rotation.y += 0.01 + rotationY * 0.5;
+                if (!isDeviceFlat) {
+                    sphere.rotation.x += rotationX * 0.5;
+                    sphere.rotation.y += rotationY * 0.5;
+                }
+            }
+
+            if (torus) {
+                if (!isDeviceFlat) {
+                    torus.rotation.x += rotationX * 0.3;
+                    torus.rotation.z += rotationY * 0.7;
+                }
             }
 
             // Animation des particules
