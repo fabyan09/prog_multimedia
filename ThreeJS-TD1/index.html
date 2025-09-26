@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Three.js - Exercice 1</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 14px;
+            z-index: 100;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-size: 12px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        Three.js Scene - Exercice 1<br>
+        Utilisez votre smartphone pour contrôler la rotation
+    </div>
+
+    <div id="container"></div>
+
+    <div id="controls">
+        Appuyez sur 'R' pour réinitialiser la rotation
+    </div>
+
+    <!-- Three.js CDN - dernière version -->
+    <script src="https://unpkg.com/three@0.156.1/build/three.min.js"></script>
+    <!-- GLTFLoader pour les modèles 3D -->
+    <script src="https://unpkg.com/three@0.156.1/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script>
+        // Variables globales
+        let scene, camera, renderer;
+        let cube, sphere, loadedModel;
+        let ambientLight, directionalLight;
+        let textureLoader, gltfLoader;
+
+        // Variables d'animation
+        let rotationX = 0;
+        let rotationY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+
+        // Variables pour les particules
+        let particleSystem;
+
+        // Initialisation
+        init();
+        animate();
+
+        function init() {
+            // Conteneur
+            const container = document.getElementById('container');
+
+            // Scène
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x000000, 1, 1000);
+
+            // Caméra
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 5;
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x111111);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Éclairage
+            ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+
+            directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            // Chargeurs
+            textureLoader = new THREE.TextureLoader();
+
+            // Créer les objets
+            createCube();
+            createSphere();
+            createParticles();
+
+            // Charger un modèle 3D (optionnel)
+            loadModel();
+
+            // Événements
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('keydown', onKeyDown);
+
+            // Device orientation pour smartphone
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', onDeviceOrientation);
+            }
+
+            // Device motion (optionnel)
+            if (window.DeviceMotionEvent) {
+                window.addEventListener('devicemotion', onDeviceMotion);
+            }
+        }
+
+        function createCube() {
+            // Géométrie du cube
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+
+            // Texture pour le cube
+            const texture = textureLoader.load('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+                // Callback de chargement réussi
+                function(texture) {
+                    console.log('Texture chargée');
+                },
+                // Callback de progression
+                function(progress) {
+                    console.log('Progression:', progress);
+                },
+                // Callback d'erreur
+                function(error) {
+                    console.log('Erreur de chargement texture:', error);
+                }
+            );
+
+            // Matériau avec texture
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x00ff00,
+                map: texture,
+                shininess: 100
+            });
+
+            // Créer le cube
+            cube = new THREE.Mesh(geometry, material);
+            cube.position.x = -2;
+            cube.castShadow = true;
+            cube.receiveShadow = true;
+            scene.add(cube);
+        }
+
+        function createSphere() {
+            // Géométrie de la sphère
+            const geometry = new THREE.SphereGeometry(0.8, 32, 32);
+
+            // Matériau coloré
+            const material = new THREE.MeshPhongMaterial({
+                color: 0xff6600,
+                shininess: 100,
+                specular: 0x111111
+            });
+
+            // Créer la sphère
+            sphere = new THREE.Mesh(geometry, material);
+            sphere.position.x = 2;
+            sphere.castShadow = true;
+            sphere.receiveShadow = true;
+            scene.add(sphere);
+        }
+
+        function createParticles() {
+            // Système de particules simple
+            const particles = new THREE.BufferGeometry();
+            const particleCount = 1000;
+
+            const positions = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 20;     // x
+                positions[i + 1] = (Math.random() - 0.5) * 20; // y
+                positions[i + 2] = (Math.random() - 0.5) * 20; // z
+            }
+
+            particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            const particleMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.1,
+                transparent: true,
+                opacity: 0.6
+            });
+
+            particleSystem = new THREE.Points(particles, particleMaterial);
+            scene.add(particleSystem);
+        }
+
+        function loadModel() {
+            // Pour charger un modèle glTF (vous devrez ajouter un fichier .gltf)
+            // Exemple avec un modèle simple - remplacez par votre propre modèle
+            /*
+            gltfLoader = new THREE.GLTFLoader();
+            gltfLoader.load(
+                'models/scene.gltf', // Remplacez par le chemin de votre modèle
+                function(gltf) {
+                    loadedModel = gltf.scene;
+                    loadedModel.position.y = -1;
+                    loadedModel.scale.set(0.5, 0.5, 0.5);
+                    scene.add(loadedModel);
+                },
+                function(progress) {
+                    console.log('Progression du modèle:', (progress.loaded / progress.total * 100) + '%');
+                },
+                function(error) {
+                    console.error('Erreur de chargement du modèle:', error);
+                }
+            );
+            */
+        }
+
+        function onDeviceOrientation(event) {
+            // Utiliser l'orientation du smartphone pour contrôler la rotation
+            if (event.gamma !== null && event.beta !== null) {
+                targetRotationY = event.gamma * 0.01;  // rotation gauche/droite
+                targetRotationX = event.beta * 0.01;   // rotation haut/bas
+            }
+        }
+
+        function onDeviceMotion(event) {
+            // Optionnel: utiliser l'accélération pour des effets supplémentaires
+            if (event.acceleration) {
+                // Exemple: faire bouger les particules selon l'accélération
+                if (particleSystem) {
+                    const positions = particleSystem.geometry.attributes.position.array;
+                    for (let i = 0; i < positions.length; i += 3) {
+                        positions[i] += (event.acceleration.x || 0) * 0.001;
+                        positions[i + 1] += (event.acceleration.y || 0) * 0.001;
+                    }
+                    particleSystem.geometry.attributes.position.needsUpdate = true;
+                }
+            }
+        }
+
+        function onKeyDown(event) {
+            switch(event.code) {
+                case 'KeyR':
+                    // Réinitialiser la rotation
+                    targetRotationX = 0;
+                    targetRotationY = 0;
+                    break;
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            // Animation continue
+            renderer.setAnimationLoop(render);
+        }
+
+        function render() {
+            // Interpolation douce des rotations
+            rotationX += (targetRotationX - rotationX) * 0.05;
+            rotationY += (targetRotationY - rotationY) * 0.05;
+
+            // Rotation automatique + contrôle smartphone
+            if (cube) {
+                cube.rotation.x += 0.01 + rotationX;
+                cube.rotation.y += 0.01 + rotationY;
+            }
+
+            if (sphere) {
+                sphere.rotation.x += 0.005 - rotationX * 0.5;
+                sphere.rotation.y += 0.01 + rotationY * 0.5;
+            }
+
+            // Animation des particules
+            if (particleSystem) {
+                particleSystem.rotation.x += 0.001;
+                particleSystem.rotation.y += 0.002;
+            }
+
+            // Animation du modèle chargé (si présent)
+            if (loadedModel) {
+                loadedModel.rotation.y += 0.005;
+            }
+
+            // Rendu
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>

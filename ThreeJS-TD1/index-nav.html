@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Three.js TD1 - Navigation</title>
+    <style>
+        :root {
+            --bg: #0f1720;
+            --card: #0b1220;
+            --muted: #9aa4b2;
+            --accent: #6ee7b7;
+            --glass: rgba(255,255,255,0.03);
+            --radius: 14px;
+            color-scheme: dark;
+            color: #e6eef6;
+            background: linear-gradient(180deg, #071025 0%, #071827 60%);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        }
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body { display: flex; align-items: center; justify-content: center; padding: 40px; }
+
+        .wrap { width: 100%; max-width: 800px; }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 28px;
+        }
+
+        .brand {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .logo {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent), #60a5fa);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #07202a;
+        }
+
+        h1 { font-size: 20px; margin: 0; }
+        p.lead { margin: 0; color: var(--muted); font-size: 13px; }
+
+        main {
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            padding: 22px;
+            border-radius: 18px;
+            box-shadow: 0 8px 30px rgba(2,6,23,0.6);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.02);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            transition: transform .18s ease, box-shadow .18s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+        }
+
+        .icon {
+            width: 54px;
+            height: 54px;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #07202a, #0b2433);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .meta {
+            flex: 1;
+        }
+
+        .meta h3 {
+            margin: 0 0 6px 0;
+            font-size: 15px;
+        }
+
+        .meta p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .meta .tiny {
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            margin-top: 6px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .info-box {
+            background: rgba(110, 231, 183, 0.1);
+            border: 1px solid rgba(110, 231, 183, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .info-box h4 {
+            margin: 0 0 8px 0;
+            color: var(--accent);
+            font-size: 14px;
+        }
+
+        .info-box p {
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <header>
+            <div class="brand">
+                <div class="logo" aria-hidden>3D</div>
+                <div>
+                    <h1>Three.js - Exercice 1</h1>
+                    <p class="lead">Scènes 3D interactives avec textures, modèles et contrôles smartphone</p>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <a href="../" class="back-link">
+                ← Retour à l'index principal
+            </a>
+
+            <div class="info-box">
+                <h4>🚀 Serveur local requis</h4>
+                <p>Pour tester toutes les fonctionnalités (textures, modèles 3D), lancez un serveur local : <code>python -m http.server 8000</code></p>
+            </div>
+
+            <div class="grid">
+                <a class="card" href="./index.html">
+                    <div class="icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z"/>
+                            <path d="M2 17L12 22L22 17"/>
+                            <path d="M2 12L12 17L22 12"/>
+                        </svg>
+                    </div>
+                    <div class="meta">
+                        <h3>Scène de base</h3>
+                        <p>Scène Three.js complète avec cube, sphère, particules et contrôles smartphone (DeviceOrientation)</p>
+                        <div class="tiny">index.html</div>
+                    </div>
+                </a>
+
+                <a class="card" href="./demo-with-textures.html">
+                    <div class="icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M4 4H20V20H4V4ZM6 6V18H18V6H6Z"/>
+                            <path d="M8 8H10V10H8V8ZM12 8H14V10H12V8ZM16 8H18V10H16V8Z"/>
+                            <path d="M8 12H10V14H8V12ZM12 12H14V14H12V12ZM16 12H18V14H16V12Z"/>
+                        </svg>
+                    </div>
+                    <div class="meta">
+                        <h3>Démo Textures</h3>
+                        <p>Démonstration avancée avec textures procédurales (damier, UV mapping, carrelage) et contrôles OrbitControls</p>
+                        <div class="tiny">demo-with-textures.html</div>
+                    </div>
+                </a>
+
+                <a class="card" href="./gltf-loader-demo.html">
+                    <div class="icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2L22 8.5V15.5L12 22L2 15.5V8.5L12 2Z"/>
+                            <path d="M12 9L18.5 5.5"/>
+                            <path d="M12 9L5.5 5.5"/>
+                            <path d="M12 9V16"/>
+                        </svg>
+                    </div>
+                    <div class="meta">
+                        <h3>Modèles 3D</h3>
+                        <p>Chargement et affichage de modèles glTF avec barre de progression. Inclut des exemples depuis les dépôts Khronos</p>
+                        <div class="tiny">gltf-loader-demo.html</div>
+                    </div>
+                </a>
+
+                <a class="card" href="./README.md">
+                    <div class="icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M14 2H6C4.89 2 4 2.89 4 4V20C4 21.11 4.89 22 6 22H18C19.11 22 20 21.11 20 20V8L14 2Z"/>
+                            <path d="M14 2V8H20"/>
+                            <path d="M16 13H8"/>
+                            <path d="M16 17H8"/>
+                        </svg>
+                    </div>
+                    <div class="meta">
+                        <h3>Documentation</h3>
+                        <p>Guide complet avec instructions d'installation, contrôles, ajout de textures et modèles personnalisés</p>
+                        <div class="tiny">README.md</div>
+                    </div>
+                </a>
+            </div>
+
+            <div class="info-box">
+                <h4>📱 Contrôles smartphone</h4>
+                <p><strong>DeviceOrientation :</strong> Inclinez votre smartphone pour contrôler la rotation des objets 3D. Nécessite HTTPS pour les navigateurs récents.</p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
