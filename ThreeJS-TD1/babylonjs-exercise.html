@@ -71,6 +71,7 @@
     <div id="info">
         BabylonJS Scene - Exercice 2<br>
         Bougez votre smartphone pour faire tourner le crâne<br>
+        Le crâne reste immobile quand le téléphone ne bouge pas<br>
         Physique activée - Les objets tombent !
     </div>
 
@@ -92,6 +93,8 @@
         let box, sphere, ground, torus, importedMesh;
         let physicsEnabled = false;
         let deviceOrientationData = { alpha: 0, beta: 0, gamma: 0 };
+        let lastOrientationData = { alpha: 0, beta: 0, gamma: 0 };
+        let isDeviceMoving = false;
         let lastTime = Date.now();
 
         // Initialisation
@@ -288,18 +291,44 @@
         // Skybox supprimée pour simplifier
 
         function onDeviceOrientation(event) {
-            deviceOrientationData.alpha = event.alpha || 0; // rotation Z
-            deviceOrientationData.beta = event.beta || 0;   // rotation X
-            deviceOrientationData.gamma = event.gamma || 0; // rotation Y
+            const currentAlpha = event.alpha || 0;
+            const currentBeta = event.beta || 0;
+            const currentGamma = event.gamma || 0;
 
-            // Contrôle de la caméra avec l'orientation
-            if (camera && scene) {
-                const sensitivity = 0.01;
+            // Calculer les différences avec la position précédente
+            const alphaDiff = Math.abs(currentAlpha - lastOrientationData.alpha);
+            const betaDiff = Math.abs(currentBeta - lastOrientationData.beta);
+            const gammaDiff = Math.abs(currentGamma - lastOrientationData.gamma);
 
-                // Appliquer l'orientation à la caméra
-                camera.alpha = (-deviceOrientationData.alpha * sensitivity) % (2 * Math.PI);
-                camera.beta = Math.max(0.1, Math.min(Math.PI - 0.1, Math.PI/2 + deviceOrientationData.beta * sensitivity));
+            // Seuil de mouvement (en degrés)
+            const movementThreshold = 2.0;
+
+            // Détecter si l'appareil bouge
+            isDeviceMoving = alphaDiff > movementThreshold ||
+                           betaDiff > movementThreshold ||
+                           gammaDiff > movementThreshold;
+
+            // Mettre à jour les données d'orientation seulement si l'appareil bouge
+            if (isDeviceMoving) {
+                deviceOrientationData.alpha = currentAlpha;
+                deviceOrientationData.beta = currentBeta;
+                deviceOrientationData.gamma = currentGamma;
+
+                // Rotation du crâne seulement quand l'appareil bouge
+                if (importedMesh && scene) {
+                    const sensitivity = 0.01;
+
+                    // Appliquer la rotation du gyroscope au crâne
+                    importedMesh.rotation.x = BABYLON.Tools.ToRadians(deviceOrientationData.beta * sensitivity);
+                    importedMesh.rotation.y = BABYLON.Tools.ToRadians(deviceOrientationData.alpha * sensitivity);
+                    importedMesh.rotation.z = BABYLON.Tools.ToRadians(deviceOrientationData.gamma * sensitivity);
+                }
             }
+
+            // Mettre à jour les valeurs précédentes
+            lastOrientationData.alpha = currentAlpha;
+            lastOrientationData.beta = currentBeta;
+            lastOrientationData.gamma = currentGamma;
         }
 
         function onKeyDown(event) {
@@ -337,6 +366,8 @@
             }
             // Réinitialiser les données gyroscope
             deviceOrientationData = { alpha: 0, beta: 0, gamma: 0 };
+            lastOrientationData = { alpha: 0, beta: 0, gamma: 0 };
+            isDeviceMoving = false;
         }
 
         function addRandomSphere() {
