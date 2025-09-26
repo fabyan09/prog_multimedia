@@ -70,7 +70,7 @@
 
     <div id="info">
         BabylonJS Scene - Exercice 2<br>
-        Bougez votre smartphone pour contrôler la caméra<br>
+        Bougez votre smartphone pour faire tourner le crâne<br>
         Physique activée - Les objets tombent !
     </div>
 
@@ -89,7 +89,7 @@
     <script>
         // Variables globales
         let canvas, engine, scene, camera;
-        let box, sphere, ground, torus;
+        let box, sphere, ground, torus, importedMesh;
         let physicsEnabled = false;
         let deviceOrientationData = { alpha: 0, beta: 0, gamma: 0 };
         let lastTime = Date.now();
@@ -316,21 +316,27 @@
 
         function resetScene() {
             // Réinitialiser les positions
-            if (box) {
-                box.position = new BABYLON.Vector3(-2, 5, 0);
+            if (box && box.physicsImpostor) {
+                box.position = new BABYLON.Vector3(-2, 2, 0);
                 box.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
                 box.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
             }
-            if (sphere) {
-                sphere.position = new BABYLON.Vector3(2, 6, 0);
+            if (sphere && sphere.physicsImpostor) {
+                sphere.position = new BABYLON.Vector3(2, 2, 0);
                 sphere.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
                 sphere.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
             }
-            if (torus) {
-                torus.position = new BABYLON.Vector3(0, 8, 2);
+            if (torus && torus.physicsImpostor) {
+                torus.position = new BABYLON.Vector3(0, 3, 0);
                 torus.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
                 torus.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
             }
+            // Réinitialiser la rotation du crâne
+            if (importedMesh) {
+                importedMesh.rotation = BABYLON.Vector3.Zero();
+            }
+            // Réinitialiser les données gyroscope
+            deviceOrientationData = { alpha: 0, beta: 0, gamma: 0 };
         }
 
         function addRandomSphere() {
