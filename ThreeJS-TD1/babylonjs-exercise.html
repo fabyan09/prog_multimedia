@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BabylonJS - Exercice 2</title>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: Arial, sans-serif;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 14px;
+            z-index: 100;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-size: 12px;
+            z-index: 100;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #backButton {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #backButton:hover {
+            background: #005a9e;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="backButton" onclick="window.location.href='../index.html'">← Retour</button>
+
+    <div id="info">
+        BabylonJS Scene - Exercice 2<br>
+        Bougez votre smartphone pour contrôler la caméra<br>
+        Physique activée - Les objets tombent !
+    </div>
+
+    <canvas id="renderCanvas"></canvas>
+
+    <div id="controls">
+        Appuyez sur 'R' pour réinitialiser<br>
+        Appuyez sur 'Space' pour ajouter des sphères
+    </div>
+
+    <!-- BabylonJS -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+    <script>
+        // Variables globales
+        let canvas, engine, scene, camera;
+        let box, sphere, ground, torus;
+        let physicsEnabled = false;
+        let deviceOrientationData = { alpha: 0, beta: 0, gamma: 0 };
+        let lastTime = Date.now();
+
+        // Initialisation
+        window.addEventListener('DOMContentLoaded', async () => {
+            await init();
+            render();
+        });
+
+        async function init() {
+            // Canvas et moteur
+            canvas = document.getElementById('renderCanvas');
+            engine = new BABYLON.Engine(canvas, true);
+
+            // Créer la scène
+            createScene();
+
+            // Événements
+            window.addEventListener('resize', () => {
+                engine.resize();
+            });
+
+            window.addEventListener('keydown', onKeyDown);
+
+            // Orientation du smartphone
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', onDeviceOrientation);
+            }
+
+            // Demander les permissions pour iOS 13+
+            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission === 'granted') {
+                        window.addEventListener('deviceorientation', onDeviceOrientation);
+                    }
+                } catch (error) {
+                    console.log('Erreur permission orientation:', error);
+                }
+            }
+        }
+
+        function createScene() {
+            // This creates a basic Babylon Scene object (non-mesh)
+            scene = new BABYLON.Scene(engine);
+
+            var camera = new BABYLON.ArcRotateCamera("camera", BABYLON.Tools.ToRadians(90), BABYLON.Tools.ToRadians(65), 10, BABYLON.Vector3.Zero(), scene);
+
+            // This attaches the camera to the canvas
+            camera.attachControl(canvas, true);
+
+            // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
+            var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+            // Default intensity is 1. Let's dim the light a small amount
+            light.intensity = 0.7;
+
+            // Our built-in 'ground' shape.
+            var ground = BABYLON.MeshBuilder.CreateGround("ground", {width: 6, height: 6}, scene);
+            let groundMaterial = new BABYLON.StandardMaterial("Ground Material", scene);
+            ground.material = groundMaterial;
+
+            // Texture simple pour le sol (pattern de damier)
+            let groundTexture = new BABYLON.Texture("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVQIHWPY//8/AzYwirGBUQwOAJz/AWQD4EGnAAAAAElFTkSuQmCC", scene);
+            groundMaterial.diffuseColor = BABYLON.Color3.Red();
+            ground.material.diffuseTexture = groundTexture;
+
+            // Créer des objets 3D additionnels
+            createBox();
+            createSphere();
+            createTorus();
+
+            // Activer la physique
+            enablePhysics();
+
+            // Charger un modèle 3D simple
+            loadModel();
+
+            return scene;
+        }
+
+        function enablePhysics() {
+            try {
+                // Moteur de physique simple
+                scene.enablePhysics(new BABYLON.Vector3(0, -9.81, 0), new BABYLON.CannonJSPlugin());
+                physicsEnabled = true;
+
+                // Ajouter la physique au sol (déjà créé dans createScene)
+                var ground = scene.getMeshByName("ground");
+                if (ground) ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.7 }, scene);
+
+                // Ajouter la physique aux autres objets
+                if (box) box.physicsImpostor = new BABYLON.PhysicsImpostor(box, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 1, restitution: 0.5 }, scene);
+                if (sphere) sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.8 }, scene);
+                if (torus) torus.physicsImpostor = new BABYLON.PhysicsImpostor(torus, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0.5, restitution: 0.6 }, scene);
+
+                console.log("Physique activée");
+            } catch (error) {
+                console.log("Erreur physique, continu sans:", error);
+                physicsEnabled = false;
+            }
+        }
+
+        // La fonction createGround est maintenant intégrée dans createScene()
+
+        function createBox() {
+            // Cube simple
+            box = BABYLON.MeshBuilder.CreateBox("box", {size: 1}, scene);
+            box.position = new BABYLON.Vector3(-2, 2, 0);
+
+            // Matériau simple sans texture
+            const boxMaterial = new BABYLON.StandardMaterial("boxMat", scene);
+            boxMaterial.diffuseColor = new BABYLON.Color3(0, 0.5, 1); // Bleu
+            box.material = boxMaterial;
+        }
+
+        function createSphere() {
+            // Sphère simple
+            sphere = BABYLON.MeshBuilder.CreateSphere("sphere", {diameter: 1}, scene);
+            sphere.position = new BABYLON.Vector3(2, 2, 0);
+
+            // Matériau simple
+            const sphereMaterial = new BABYLON.StandardMaterial("sphereMat", scene);
+            sphereMaterial.diffuseColor = new BABYLON.Color3(0, 1, 0); // Vert
+            sphere.material = sphereMaterial;
+
+            // Animation de rotation
+            const animationSphere = new BABYLON.Animation("sphereRotation", "rotation.y", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            const keys = [];
+            keys.push({frame: 0, value: 0});
+            keys.push({frame: 120, value: Math.PI * 2});
+            animationSphere.setKeys(keys);
+            sphere.animations.push(animationSphere);
+            scene.beginAnimation(sphere, 0, 120, true);
+
+            // Physique de la sphère
+            sphere.physicsImpostor = new BABYLON.PhysicsImpostor(sphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 1, restitution: 0.8 }, scene);
+        }
+
+        function createTorus() {
+            // Tore simple
+            torus = BABYLON.MeshBuilder.CreateTorus("torus", {diameter: 1.5, thickness: 0.3, tessellation: 16}, scene);
+            torus.position = new BABYLON.Vector3(0, 3, 0);
+
+            // Matériau simple
+            const torusMaterial = new BABYLON.StandardMaterial("torusMat", scene);
+            torusMaterial.diffuseColor = new BABYLON.Color3(1, 1, 0); // Jaune
+            torus.material = torusMaterial;
+
+            // Animation du tore
+            const animationTorus = new BABYLON.Animation("torusRotation", "rotation", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            const torusKeys = [];
+            torusKeys.push({frame: 0, value: new BABYLON.Vector3(0, 0, 0)});
+            torusKeys.push({frame: 60, value: new BABYLON.Vector3(Math.PI, Math.PI * 2, Math.PI/2)});
+            animationTorus.setKeys(torusKeys);
+            torus.animations.push(animationTorus);
+            scene.beginAnimation(torus, 0, 60, true);
+
+            // Physique du tore
+            torus.physicsImpostor = new BABYLON.PhysicsImpostor(torus, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0.5, restitution: 0.6 }, scene);
+        }
+
+        async function loadModel() {
+            try {
+                // Utiliser le format ImportMeshAsync standard BabylonJS
+                const result = await BABYLON.SceneLoader.ImportMeshAsync("", "https://www.babylonjs-playground.com/scenes/", "skull.babylon", scene);
+
+                if (result.meshes && result.meshes.length > 0) {
+                    const importedMesh = result.meshes[0];
+                    importedMesh.position = new BABYLON.Vector3(0, 2, -3);
+                    importedMesh.scaling = new BABYLON.Vector3(0.1, 0.1, 0.1);
+
+                    // Animation de rotation
+                    const animationModel = new BABYLON.Animation("modelRotation", "rotation.y", 30, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+                    const modelKeys = [];
+                    modelKeys.push({frame: 0, value: 0});
+                    modelKeys.push({frame: 120, value: Math.PI * 2});
+                    animationModel.setKeys(modelKeys);
+                    importedMesh.animations.push(animationModel);
+                    scene.beginAnimation(importedMesh, 0, 120, true);
+
+                    console.log("Modèle chargé avec succès");
+                }
+            } catch (error) {
+                console.log("Impossible de charger le modèle 3D:", error);
+                // Créer un objet de remplacement
+                const replacementBox = BABYLON.MeshBuilder.CreateBox("replacement", {size: 0.5}, scene);
+                replacementBox.position = new BABYLON.Vector3(0, 2, -3);
+                const replacementMaterial = new BABYLON.StandardMaterial("replacementMat", scene);
+                replacementMaterial.diffuseColor = new BABYLON.Color3(1, 0, 1); // Magenta
+                replacementBox.material = replacementMaterial;
+            }
+        }
+
+        // Skybox supprimée pour simplifier
+
+        function onDeviceOrientation(event) {
+            deviceOrientationData.alpha = event.alpha || 0; // rotation Z
+            deviceOrientationData.beta = event.beta || 0;   // rotation X
+            deviceOrientationData.gamma = event.gamma || 0; // rotation Y
+
+            // Contrôle de la caméra avec l'orientation
+            if (camera && scene) {
+                const sensitivity = 0.01;
+
+                // Appliquer l'orientation à la caméra
+                camera.alpha = (-deviceOrientationData.alpha * sensitivity) % (2 * Math.PI);
+                camera.beta = Math.max(0.1, Math.min(Math.PI - 0.1, Math.PI/2 + deviceOrientationData.beta * sensitivity));
+            }
+        }
+
+        function onKeyDown(event) {
+            switch(event.code) {
+                case 'KeyR':
+                    resetScene();
+                    break;
+                case 'Space':
+                    event.preventDefault();
+                    addRandomSphere();
+                    break;
+            }
+        }
+
+        function resetScene() {
+            // Réinitialiser les positions
+            if (box) {
+                box.position = new BABYLON.Vector3(-2, 5, 0);
+                box.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
+                box.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
+            }
+            if (sphere) {
+                sphere.position = new BABYLON.Vector3(2, 6, 0);
+                sphere.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
+                sphere.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
+            }
+            if (torus) {
+                torus.position = new BABYLON.Vector3(0, 8, 2);
+                torus.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero());
+                torus.physicsImpostor.setAngularVelocity(BABYLON.Vector3.Zero());
+            }
+        }
+
+        function addRandomSphere() {
+            // Ajouter une sphère aléatoire
+            const newSphere = BABYLON.MeshBuilder.CreateSphere("randomSphere", {diameter: 0.5 + Math.random()}, scene);
+            newSphere.position = new BABYLON.Vector3(
+                (Math.random() - 0.5) * 8,
+                5 + Math.random() * 3,
+                (Math.random() - 0.5) * 8
+            );
+
+            // Matériau coloré aléatoire
+            const material = new BABYLON.StandardMaterial("randomMat", scene);
+            material.diffuseColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+            newSphere.material = material;
+
+            // Physique
+            newSphere.physicsImpostor = new BABYLON.PhysicsImpostor(newSphere, BABYLON.PhysicsImpostor.SphereImpostor, { mass: 0.2, restitution: 0.9 }, scene);
+
+            // Supprimer après 10 secondes
+            setTimeout(() => {
+                if (newSphere) {
+                    newSphere.dispose();
+                }
+            }, 10000);
+        }
+
+        function render() {
+            engine.runRenderLoop(() => {
+                if (scene && scene.isReady()) {
+                    scene.render();
+                } else {
+                    console.log("Scène pas prête pour le rendu");
+                }
+            });
+        }
+
+        // Nettoyage à la fermeture
+        window.addEventListener('beforeunload', () => {
+            if (engine) {
+                engine.dispose();
+            }
+        });
+    </script>
+</body>
+</html>

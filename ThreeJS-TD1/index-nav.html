@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ThreeJS & BabylonJS - Navigation</title>
+    <style>
+        :root {
+            --bg: #0f1720;
+            --card: #0b1220;
+            --muted: #9aa4b2;
+            --accent: #6ee7b7;
+            --glass: rgba(255,255,255,0.03);
+            --radius: 14px;
+            color-scheme: dark;
+            color: #e6eef6;
+            background: linear-gradient(180deg, #071025 0%, #071827 60%);
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+        }
+
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin: 0 0 10px 0;
+            background: linear-gradient(135deg, var(--accent), #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            margin-bottom: 40px;
+        }
+
+        .back-button:hover {
+            background: rgba(255,255,255,0.08);
+            color: #e6eef6;
+            transform: translateY(-2px);
+        }
+
+        .exercises {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 24px;
+        }
+
+        .exercise-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+            padding: 24px;
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.03);
+            box-shadow: 0 8px 30px rgba(2,6,23,0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .exercise-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(2,6,23,0.5);
+        }
+
+        .exercise-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .exercise-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .threejs-icon {
+            background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+        }
+
+        .babylonjs-icon {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+        }
+
+        .exercise-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .exercise-description {
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .features {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 20px 0;
+        }
+
+        .features li {
+            padding: 4px 0;
+            font-size: 13px;
+            color: var(--muted);
+            position: relative;
+            padding-left: 16px;
+        }
+
+        .features li::before {
+            content: "•";
+            color: var(--accent);
+            position: absolute;
+            left: 0;
+        }
+
+        .exercise-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: var(--accent);
+            color: #0f1720;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .exercise-button:hover {
+            background: #5dd4a3;
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            body { padding: 20px; }
+            .exercises { grid-template-columns: 1fr; }
+            h1 { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="../index.html" class="back-button">
+                ← Retour à l'index principal
+            </a>
+            <h1>Exercices 3D Interactifs</h1>
+            <p class="subtitle">Explorez les capacités de Three.js et BabylonJS</p>
+        </header>
+
+        <div class="exercises">
+            <!-- Exercice 1: Three.js -->
+            <div class="exercise-card">
+                <div class="exercise-header">
+                    <div class="exercise-icon threejs-icon">🎯</div>
+                    <h2 class="exercise-title">Exercice 1 - Three.js</h2>
+                </div>
+
+                <p class="exercise-description">
+                    Scène 3D interactive avec contrôle par orientation du smartphone.
+                    Les objets restent statiques quand le téléphone est à plat.
+                </p>
+
+                <ul class="features">
+                    <li>Cube avec texture personnalisable</li>
+                    <li>Sphère avec texture de la Terre</li>
+                    <li>Tore animé avec matériau métallique</li>
+                    <li>Rotation basée sur l'orientation du téléphone</li>
+                    <li>Système de particules</li>
+                </ul>
+
+                <a href="index.html" class="exercise-button">
+                    Lancer Three.js →
+                </a>
+            </div>
+
+            <!-- Exercice 2: BabylonJS -->
+            <div class="exercise-card">
+                <div class="exercise-header">
+                    <div class="exercise-icon babylonjs-icon">🚀</div>
+                    <h2 class="exercise-title">Exercice 2 - BabylonJS</h2>
+                </div>
+
+                <p class="exercise-description">
+                    Scène 3D avancée avec moteur de physique, textures réalistes et
+                    contrôle de caméra par orientation du smartphone.
+                </p>
+
+                <ul class="features">
+                    <li>Moteur de physique Cannon.js intégré</li>
+                    <li>Objets avec collision et rebond</li>
+                    <li>Modèle 3D importé</li>
+                    <li>Sol avec texture herbe</li>
+                    <li>Contrôle caméra par smartphone</li>
+                    <li>Ajout dynamique d'objets (Espace)</li>
+                </ul>
+
+                <a href="babylonjs-exercise.html" class="exercise-button">
+                    Lancer BabylonJS →
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
