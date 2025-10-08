@@ -224,12 +224,16 @@
 
     <!-- Container AR.js pour la géolocalisation -->
     <div id="arjs-container">
+        <!-- Vidéo de la caméra -->
+        <video id="arjs-video" autoplay muted playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); z-index: 1;"></video>
+        
         <a-scene 
             vr-mode-ui="enabled: false;" 
             renderer="logarithmicDepthBuffer: true;" 
             embedded 
             arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false; sourceWidth: 1280; sourceHeight: 720; displayWidth: 1280; displayHeight: 720;"
-            id="scene">
+            id="scene"
+            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;">
             
             <!-- Caméra AR.js -->
             <a-camera gps-camera rotation-reader></a-camera>
@@ -351,6 +355,12 @@
                     this.setupEventListeners();
                     await this.initAR();
                     await this.initGeolocation();
+                    
+                    // Essayer d'afficher le flux vidéo dès l'initialisation
+                    setTimeout(() => {
+                        this.requestCameraAccess();
+                    }, 3000);
+                    
                     this.hideMessage();
                     this.showMessage('Application initialisée ! Géolocalisation activée.', 'success');
                 } catch (error) {
@@ -360,29 +370,36 @@
             }
 
             async initAR() {
-                // Demander l'accès à la caméra explicitement
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'environment', // Caméra arrière pour AR
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
-                        }
+                // Attendre que la scène AR.js soit prête
+                return new Promise((resolve) => {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        this.scene = document.getElementById('scene');
+                        console.log('Scène AR.js initialisée');
+                        
+                        // Connecter le flux vidéo d'AR.js à notre élément vidéo
+                        this.connectVideoStream();
+                        
+                        resolve();
                     });
-                    console.log('Accès à la caméra accordé');
+                });
+            }
+
+            connectVideoStream() {
+                // Attendre que AR.js initialise sa caméra
+                setTimeout(() => {
+                    const arjsVideo = document.getElementById('arjs-video');
+                    const arjsVideoElement = document.querySelector('a-scene video');
                     
-                    // Attendre que la scène AR.js soit prête
-                    return new Promise((resolve) => {
-                        document.addEventListener('DOMContentLoaded', () => {
-                            this.scene = document.getElementById('scene');
-                            console.log('Scène AR.js initialisée');
-                            resolve();
-                        });
-                    });
-                } catch (error) {
-                    console.error('Erreur accès caméra:', error);
-                    throw new Error('Accès à la caméra refusé. Veuillez autoriser l\'accès à la caméra.');
-                }
+                    if (arjsVideoElement) {
+                        // Copier le srcObject de la vidéo AR.js vers notre vidéo d'affichage
+                        arjsVideo.srcObject = arjsVideoElement.srcObject;
+                        console.log('Flux vidéo connecté');
+                        this.showMessage('✅ Caméra activée et flux vidéo affiché !', 'success');
+                    } else {
+                        console.log('Vidéo AR.js pas encore prête, nouvelle tentative...');
+                        this.connectVideoStream(); // Réessayer
+                    }
+                }, 2000);
             }
 
             async initGeolocation() {
@@ -630,12 +647,14 @@
                     });
                     
                     console.log('Accès à la caméra accordé');
-                    this.showMessage('✅ Caméra activée !', 'success');
                     
-                    // Arrêter le stream car AR.js va le gérer
-                    stream.getTracks().forEach(track => track.stop());
+                    // Afficher directement le flux vidéo
+                    const arjsVideo = document.getElementById('arjs-video');
+                    arjsVideo.srcObject = stream;
                     
-                    // Redémarrer AR.js
+                    this.showMessage('✅ Caméra activée et flux vidéo affiché !', 'success');
+                    
+                    // Redémarrer AR.js pour qu'il utilise le même stream
                     if (this.scene) {
                         this.scene.emit('restart');
                     }
