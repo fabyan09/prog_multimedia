@@ -49,7 +49,15 @@
     footer{margin-top:18px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;align-items:center}
 
     /* responsive small */
-    @media (max-width:520px){body{padding:20px} .logo{width:48px;height:48px}}
+    @media (max-width:520px){
+      body{padding:20px}
+      .logo{width:48px;height:48px}
+      header{flex-direction:column;gap:16px;align-items:flex-start}
+      .controls{width:100%;flex-direction:column}
+      .search{width:100%;min-width:auto}
+      .grid{grid-template-columns:1fr}
+      footer{flex-direction:column;gap:8px;align-items:flex-start}
+    }
 
     /* light theme (if user prefers) */
     @media (prefers-color-scheme: light){:root{--bg:#f7fbff;--card:#ffffff;--muted:#576574;color:#0b1720;background:linear-gradient(180deg,#f7fbff,#eaf3ff);--glass:rgba(2,6,23,0.03);}}
@@ -107,6 +115,23 @@
             <div class="meta">
               <h3>ThreeJS-TD1</h3>
               <p>Exercices Three.js & BabylonJS — Scènes 3D interactives avec physique.</p>
+              <div class="tiny">Accéder →</div>
+            </div>
+          </a>
+
+          <!-- Card pour CartoTD3 -->
+          <a class="card" href="./CartoTD3/" draggable="false">
+            <div class="icon" aria-hidden>
+              <!-- map SVG -->
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <path d="M1 6V22L8 18L16 22L23 18V2L16 6L8 2L1 6Z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8 2V18" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M16 6V22" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="meta">
+              <h3>CartoTD3</h3>
+              <p>Cartographie et visualisation de données — TD 3.</p>
               <div class="tiny">Accéder →</div>
             </div>
           </a>
