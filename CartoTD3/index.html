@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Exercice 2 - AR Géolocalisée avec POI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <style>
+        html, body { overflow: hidden; width: 100%; height: 100%; margin: 0; padding: 0; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+        #info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0,0,0,0.8);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: sans-serif;
+            font-size: 14px;
+            max-width: 300px;
+            line-height: 1.4;
+        }
+        #compass {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 100px;
+            height: 100px;
+            background-color: rgba(0,0,0,0.8);
+            border-radius: 50%;
+            border: 3px solid white;
+        }
+        #compassCanvas {
+            width: 100%;
+            height: 100%;
+        }
+        #poi-list {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: sans-serif;
+            font-size: 12px;
+        }
+        .poi-item {
+            margin: 5px 0;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .poi-item:hover {
+            background-color: rgba(255,255,255,0.2);
+        }
+    </style>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+</head>
+<body>
+    <div id="poi-list">
+        <strong>Points d'intérêt:</strong>
+        <div id="poi-container"></div>
+    </div>
+    <div id="compass">
+        <canvas id="compassCanvas" width="100" height="100"></canvas>
+    </div>
+    <div id="info">Initialisation...</div>
+    <canvas id="renderCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+        const infoDiv = document.getElementById('info');
+        const poiContainer = document.getElementById('poi-container');
+        const compassCanvas = document.getElementById('compassCanvas');
+        const compassCtx = compassCanvas.getContext('2d');
+
+        // --- Paramètres de la scène ---
+        const smoothingFactor = 0.05;
+
+        // Variables pour le lissage de l'orientation
+        let targetAngleY = 0;
+        let smoothedAngleY = 0;
+        let userLat = null;
+        let userLon = null;
+        let scene = null;
+
+        // Points d'intérêt (POI) - exemples en France
+        const pointsOfInterest = [
+            { name: "Tour Eiffel", lat: 48.8584, lon: 2.2945, color: BABYLON.Color3.Red() },
+            { name: "Arc de Triomphe", lat: 48.8738, lon: 2.2950, color: BABYLON.Color3.Blue() },
+            { name: "Sacré-Cœur", lat: 48.8867, lon: 2.3431, color: BABYLON.Color3.Yellow() },
+            { name: "Louvre", lat: 48.8606, lon: 2.3376, color: BABYLON.Color3.Green() },
+            { name: "Notre-Dame", lat: 48.8530, lon: 2.3499, color: BABYLON.Color3.Purple() }
+        ];
+
+        // Calcul de la distance entre deux points GPS (formule de Haversine)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Rayon de la Terre en km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Calcul du bearing (azimut) entre deux points GPS
+        function calculateBearing(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                     Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+            let bearing = Math.atan2(y, x) * 180 / Math.PI;
+            return (bearing + 360) % 360;
+        }
+
+        // Créer un marqueur 3D pour un POI
+        function createPOIMarker(poi, distance, bearing) {
+            // Placer le marqueur en fonction du bearing
+            const angleRad = bearing * Math.PI / 180;
+            // Utiliser une distance normalisée pour l'affichage (entre 5 et 50 mètres virtuels)
+            const displayDistance = Math.min(50, Math.max(5, distance * 10));
+
+            const x = Math.sin(angleRad) * displayDistance;
+            const z = Math.cos(angleRad) * displayDistance;
+
+            // Créer une sphère avec un texte
+            const sphere = BABYLON.MeshBuilder.CreateSphere(
+                poi.name,
+                { diameter: 2 },
+                scene
+            );
+            sphere.position = new BABYLON.Vector3(x, 0, z);
+
+            const material = new BABYLON.StandardMaterial(poi.name + "Mat", scene);
+            material.emissiveColor = poi.color;
+            material.diffuseColor = poi.color;
+            sphere.material = material;
+
+            // Ajouter un texte au-dessus
+            const plane = BABYLON.MeshBuilder.CreatePlane(
+                poi.name + "Label",
+                { width: 4, height: 1 },
+                scene
+            );
+            plane.position = new BABYLON.Vector3(x, 2, z);
+            plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+
+            const advancedTexture = new BABYLON.DynamicTexture(
+                "dynamicTexture",
+                { width: 512, height: 128 },
+                scene
+            );
+            const ctx = advancedTexture.getContext();
+            ctx.fillStyle = "white";
+            ctx.font = "bold 40px Arial";
+            ctx.fillText(poi.name, 10, 60);
+            ctx.fillText(`${distance.toFixed(2)} km`, 10, 100);
+            advancedTexture.update();
+
+            const planeMat = new BABYLON.StandardMaterial(poi.name + "LabelMat", scene);
+            planeMat.diffuseTexture = advancedTexture;
+            planeMat.emissiveTexture = advancedTexture;
+            planeMat.opacityTexture = advancedTexture;
+            plane.material = planeMat;
+
+            return { sphere, plane };
+        }
+
+        const createScene = () => {
+            scene = new BABYLON.Scene(engine);
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            const camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 0, 0), scene);
+
+            setupARBackground(scene);
+            setupOrientationListener();
+
+            return scene;
+        };
+
+        const setupARBackground = (scene) => {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(stream => {
+                    const video = document.createElement('video');
+                    video.setAttribute('playsinline', '');
+                    video.setAttribute('autoplay', '');
+                    video.srcObject = stream;
+                    video.play();
+
+                    const background = new BABYLON.Layer("background", null, scene, true);
+                    background.texture = new BABYLON.VideoTexture("video", video, scene, true);
+                }).catch(err => {
+                    console.error(err);
+                    infoDiv.innerHTML = "<strong>Erreur:</strong> Caméra inaccessible. Assurez-vous d'utiliser <strong>HTTPS</strong>.<br>Mode démo activé.";
+                });
+        };
+
+        const setupOrientationListener = () => {
+            window.addEventListener("deviceorientationabsolute", (event) => {
+                if (event.alpha !== null) {
+                    const screenAngle = screen.orientation.angle || 0;
+                    const compensatedAlpha = event.alpha - screenAngle;
+                    targetAngleY = -compensatedAlpha;
+
+                    // Mise à jour du compas 2D
+                    drawCompass(compensatedAlpha);
+                }
+            }, true);
+        };
+
+        // Dessiner le compas 2D
+        function drawCompass(heading) {
+            compassCtx.clearRect(0, 0, 100, 100);
+
+            // Fond
+            compassCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            compassCtx.beginPath();
+            compassCtx.arc(50, 50, 45, 0, 2 * Math.PI);
+            compassCtx.fill();
+
+            // Aiguille
+            compassCtx.save();
+            compassCtx.translate(50, 50);
+            compassCtx.rotate(-heading * Math.PI / 180);
+
+            // Partie Nord (rouge)
+            compassCtx.fillStyle = 'red';
+            compassCtx.beginPath();
+            compassCtx.moveTo(0, -35);
+            compassCtx.lineTo(-8, 5);
+            compassCtx.lineTo(8, 5);
+            compassCtx.closePath();
+            compassCtx.fill();
+
+            // Partie Sud (blanche)
+            compassCtx.fillStyle = 'white';
+            compassCtx.beginPath();
+            compassCtx.moveTo(0, 35);
+            compassCtx.lineTo(-8, 5);
+            compassCtx.lineTo(8, 5);
+            compassCtx.closePath();
+            compassCtx.fill();
+
+            compassCtx.restore();
+
+            // N pour Nord
+            compassCtx.fillStyle = 'white';
+            compassCtx.font = 'bold 14px Arial';
+            compassCtx.textAlign = 'center';
+            compassCtx.fillText('N', 50, 15);
+        }
+
+        // Récupérer la géolocalisation et créer les POIs
+        function getUserLocation() {
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLat = position.coords.latitude;
+                        userLon = position.coords.longitude;
+
+                        infoDiv.innerHTML = `<strong>Position:</strong><br>Lat: ${userLat.toFixed(4)}, Lon: ${userLon.toFixed(4)}<br><br><strong>POIs détectés:</strong>`;
+
+                        // Créer les POIs et afficher la liste
+                        poiContainer.innerHTML = '';
+                        pointsOfInterest.forEach(poi => {
+                            const distance = calculateDistance(userLat, userLon, poi.lat, poi.lon);
+                            const bearing = calculateBearing(userLat, userLon, poi.lat, poi.lon);
+
+                            // Créer le marqueur 3D
+                            createPOIMarker(poi, distance, bearing);
+
+                            // Ajouter à la liste
+                            const poiDiv = document.createElement('div');
+                            poiDiv.className = 'poi-item';
+                            poiDiv.innerHTML = `${poi.name}<br><small>${distance.toFixed(2)} km - ${bearing.toFixed(0)}°</small>`;
+                            poiContainer.appendChild(poiDiv);
+                        });
+                    },
+                    (error) => {
+                        console.error("Erreur de géolocalisation:", error);
+                        infoDiv.innerHTML = "<strong>Erreur:</strong> Impossible de récupérer votre position<br>Utilisation de la position par défaut (Paris)";
+
+                        // Position par défaut (Paris)
+                        userLat = 48.8566;
+                        userLon = 2.3522;
+
+                        poiContainer.innerHTML = '';
+                        pointsOfInterest.forEach(poi => {
+                            const distance = calculateDistance(userLat, userLon, poi.lat, poi.lon);
+                            const bearing = calculateBearing(userLat, userLon, poi.lat, poi.lon);
+                            createPOIMarker(poi, distance, bearing);
+
+                            const poiDiv = document.createElement('div');
+                            poiDiv.className = 'poi-item';
+                            poiDiv.innerHTML = `${poi.name}<br><small>${distance.toFixed(2)} km - ${bearing.toFixed(0)}°</small>`;
+                            poiContainer.appendChild(poiDiv);
+                        });
+                    }
+                );
+            }
+        }
+
+        scene = createScene();
+        getUserLocation();
+
+        engine.runRenderLoop(() => {
+            let delta = targetAngleY - smoothedAngleY;
+            // Gère le passage de 360° à 0°
+            if (Math.abs(delta) > 180) {
+                delta -= Math.sign(delta) * 360;
+            }
+
+            smoothedAngleY += delta * smoothingFactor;
+
+            scene.activeCamera.rotation.y = BABYLON.Tools.ToRadians(smoothedAngleY);
+
+            scene.render();
+        });
+
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
