@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exercice 2 - Objets Géolocalisés dans Caméra</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <!-- AR.js pour la géolocalisation -->
+    <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1c2407b26c61958baa93967b5412487cd94b290b/dist/aframe-master.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+    
+    <!-- Three.js pour les objets 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Interface de géolocalisation */
+        #arjs-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Interface de contrôle */
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .control-btn {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff88;
+            color: #00ff88;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-btn:hover {
+            background: rgba(0, 255, 136, 0.2);
+            transform: scale(1.05);
+        }
+
+        .control-btn.active {
+            background: #00ff88;
+            color: #000;
+        }
+
+        /* Informations de géolocalisation */
+        #geoloc-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff88;
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 300px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        #geoloc-info h3 {
+            color: #00ff88;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        #geoloc-info p {
+            margin: 5px 0;
+            font-size: 0.9em;
+        }
+
+        /* Compas 2D */
+        #compass {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 120px;
+            height: 120px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff88;
+            border-radius: 50%;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .compass-needle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 40px;
+            background: #ff4757;
+            transform-origin: bottom center;
+            transform: translate(-50%, -100%);
+            transition: transform 0.3s ease;
+        }
+
+        .compass-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .compass-label {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .compass-n { top: 5px; left: 50%; transform: translateX(-50%); }
+        .compass-s { bottom: 5px; left: 50%; transform: translateX(-50%); }
+        .compass-e { right: 5px; top: 50%; transform: translateY(-50%); }
+        .compass-w { left: 5px; top: 50%; transform: translateY(-50%); }
+
+        /* Messages */
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid #00ff88;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        #message.show {
+            opacity: 1;
+        }
+
+        /* Loading */
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #333;
+            border-top: 3px solid #00ff88;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #controls {
+                top: 10px;
+                right: 10px;
+                gap: 8px;
+            }
+
+            .control-btn {
+                padding: 8px 12px;
+                font-size: 11px;
+            }
+
+            #geoloc-info {
+                bottom: 10px;
+                left: 10px;
+                padding: 10px;
+                max-width: 250px;
+            }
+
+            #compass {
+                top: 10px;
+                left: 10px;
+                width: 100px;
+                height: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Message de chargement -->
+    <div id="message">
+        <div class="spinner"></div>
+        <h3>Chargement...</h3>
+        <p>Initialisation de la géolocalisation et de la caméra</p>
+    </div>
+
+    <!-- Container AR.js pour la géolocalisation -->
+    <div id="arjs-container">
+        <a-scene 
+            vr-mode-ui="enabled: false;" 
+            renderer="logarithmicDepthBuffer: true;" 
+            embedded 
+            arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+            id="scene">
+            
+            <!-- Caméra AR.js -->
+            <a-camera gps-camera rotation-reader></a-camera>
+            
+            <!-- Objets géolocalisés -->
+            <!-- Tour Eiffel (Paris) -->
+            <a-box 
+                gps-entity-place="latitude: 48.8584; longitude: 2.2945;" 
+                material="color: red;" 
+                scale="10 50 10"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
+                <a-text 
+                    value="Tour Eiffel" 
+                    position="0 25 0" 
+                    align="center" 
+                    color="white"
+                    scale="5 5 5">
+                </a-text>
+            </a-box>
+
+            <!-- Big Ben (Londres) -->
+            <a-cylinder 
+                gps-entity-place="latitude: 51.4994; longitude: -0.1245;" 
+                material="color: blue;" 
+                radius="5" 
+                height="40"
+                animation="property: rotation; to: 0 0 360; loop: true; dur: 8000">
+                <a-text 
+                    value="Big Ben" 
+                    position="0 20 0" 
+                    align="center" 
+                    color="white"
+                    scale="4 4 4">
+                </a-text>
+            </a-cylinder>
+
+            <!-- Empire State Building (New York) -->
+            <a-box 
+                gps-entity-place="latitude: 40.7484; longitude: -73.9857;" 
+                material="color: yellow;" 
+                scale="8 80 8"
+                animation="property: position; to: 0 40 0; loop: true; dur: 2000; dir: alternate">
+                <a-text 
+                    value="Empire State" 
+                    position="0 40 0" 
+                    align="center" 
+                    color="black"
+                    scale="3 3 3">
+                </a-text>
+            </a-box>
+
+            <!-- Objet géolocalisé dynamique -->
+            <a-sphere 
+                id="dynamic-object"
+                gps-entity-place="latitude: 0; longitude: 0;" 
+                material="color: green;" 
+                radius="15"
+                animation="property: scale; to: 1.5 1.5 1.5; loop: true; dur: 1000; dir: alternate">
+                <a-text 
+                    value="Position actuelle" 
+                    position="0 20 0" 
+                    align="center" 
+                    color="white"
+                    scale="2 2 2">
+                </a-text>
+            </a-sphere>
+        </a-scene>
+    </div>
+
+    <!-- Compas 2D -->
+    <div id="compass">
+        <div class="compass-needle" id="compass-needle"></div>
+        <div class="compass-center"></div>
+        <div class="compass-label compass-n">N</div>
+        <div class="compass-label compass-s">S</div>
+        <div class="compass-label compass-e">E</div>
+        <div class="compass-label compass-w">W</div>
+    </div>
+
+    <!-- Informations de géolocalisation -->
+    <div id="geoloc-info">
+        <h3>📍 Position GPS</h3>
+        <p><strong>Latitude:</strong> <span id="lat">--</span></p>
+        <p><strong>Longitude:</strong> <span id="lon">--</span></p>
+        <p><strong>Altitude:</strong> <span id="alt">--</span> m</p>
+        <p><strong>Précision:</strong> <span id="accuracy">--</span> m</p>
+        <p><strong>Orientation:</strong> <span id="heading">--</span>°</p>
+        <p><strong>Vitesse:</strong> <span id="speed">--</span> km/h</p>
+    </div>
+
+    <!-- Contrôles -->
+    <div id="controls">
+        <button class="control-btn" id="toggleGeoloc">📍 Géoloc</button>
+        <button class="control-btn" id="toggleCompass">🧭 Compas</button>
+        <button class="control-btn" id="addObject">➕ Objet</button>
+        <button class="control-btn" id="clearObjects">🗑️ Effacer</button>
+        <button class="control-btn" id="toggleDebug">🐛 Debug</button>
+    </div>
+
+    <script>
+        class GeolocationARApp {
+            constructor() {
+                this.message = document.getElementById('message');
+                this.scene = null;
+                this.geolocationWatchId = null;
+                this.currentPosition = null;
+                this.currentHeading = 0;
+                this.isGeolocationEnabled = true;
+                this.isCompassVisible = true;
+                this.debugMode = false;
+                this.objectCounter = 0;
+                
+                this.init();
+            }
+
+            async init() {
+                try {
+                    this.setupEventListeners();
+                    await this.initAR();
+                    await this.initGeolocation();
+                    this.hideMessage();
+                    this.showMessage('Application initialisée ! Géolocalisation activée.', 'success');
+                } catch (error) {
+                    console.error('Erreur d\'initialisation:', error);
+                    this.showMessage('Erreur: ' + error.message, 'error');
+                }
+            }
+
+            async initAR() {
+                // Attendre que la scène AR.js soit prête
+                return new Promise((resolve) => {
+                    document.addEventListener('DOMContentLoaded', () => {
+                        this.scene = document.getElementById('scene');
+                        console.log('Scène AR.js initialisée');
+                        resolve();
+                    });
+                });
+            }
+
+            async initGeolocation() {
+                if (!navigator.geolocation) {
+                    throw new Error('Géolocalisation non supportée par ce navigateur');
+                }
+
+                // Demander la géolocalisation
+                const position = await this.getCurrentPosition();
+                this.currentPosition = position;
+                this.updateGeolocationInfo(position);
+
+                // Surveiller les changements de position
+                this.geolocationWatchId = navigator.geolocation.watchPosition(
+                    (position) => {
+                        this.currentPosition = position;
+                        this.updateGeolocationInfo(position);
+                        this.updateDynamicObject(position);
+                    },
+                    (error) => {
+                        console.error('Erreur de géolocalisation:', error);
+                        this.showMessage('Erreur de géolocalisation: ' + error.message, 'error');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 1000
+                    }
+                );
+
+                // Surveiller l'orientation (compas)
+                if (window.DeviceOrientationEvent) {
+                    window.addEventListener('deviceorientation', (event) => {
+                        this.updateCompass(event.alpha);
+                    });
+                }
+            }
+
+            getCurrentPosition() {
+                return new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    });
+                });
+            }
+
+            updateGeolocationInfo(position) {
+                const coords = position.coords;
+                document.getElementById('lat').textContent = coords.latitude.toFixed(6);
+                document.getElementById('lon').textContent = coords.longitude.toFixed(6);
+                document.getElementById('alt').textContent = coords.altitude ? coords.altitude.toFixed(1) : 'N/A';
+                document.getElementById('accuracy').textContent = coords.accuracy.toFixed(1);
+                document.getElementById('heading').textContent = coords.heading ? coords.heading.toFixed(1) : 'N/A';
+                document.getElementById('speed').textContent = coords.speed ? (coords.speed * 3.6).toFixed(1) : 'N/A';
+            }
+
+            updateCompass(heading) {
+                if (heading !== null) {
+                    this.currentHeading = heading;
+                    const needle = document.getElementById('compass-needle');
+                    needle.style.transform = `translate(-50%, -100%) rotate(${heading}deg)`;
+                }
+            }
+
+            updateDynamicObject(position) {
+                const dynamicObject = document.getElementById('dynamic-object');
+                if (dynamicObject) {
+                    dynamicObject.setAttribute('gps-entity-place', 
+                        `latitude: ${position.coords.latitude}; longitude: ${position.coords.longitude};`);
+                }
+            }
+
+            setupEventListeners() {
+                // Toggle géolocalisation
+                document.getElementById('toggleGeoloc').addEventListener('click', () => {
+                    this.toggleGeolocation();
+                });
+
+                // Toggle compas
+                document.getElementById('toggleCompass').addEventListener('click', () => {
+                    this.toggleCompass();
+                });
+
+                // Ajouter objet
+                document.getElementById('addObject').addEventListener('click', () => {
+                    this.addGeolocatedObject();
+                });
+
+                // Effacer objets
+                document.getElementById('clearObjects').addEventListener('click', () => {
+                    this.clearCustomObjects();
+                });
+
+                // Toggle debug
+                document.getElementById('toggleDebug').addEventListener('click', () => {
+                    this.toggleDebugMode();
+                });
+
+                // Redimensionnement
+                window.addEventListener('resize', () => {
+                    this.handleResize();
+                });
+
+                // Orientation mobile
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(() => {
+                        this.handleResize();
+                    }, 100);
+                });
+            }
+
+            toggleGeolocation() {
+                const btn = document.getElementById('toggleGeoloc');
+                
+                if (this.isGeolocationEnabled) {
+                    // Désactiver
+                    if (this.geolocationWatchId) {
+                        navigator.geolocation.clearWatch(this.geolocationWatchId);
+                        this.geolocationWatchId = null;
+                    }
+                    this.isGeolocationEnabled = false;
+                    btn.classList.add('active');
+                    btn.textContent = '📍 Géoloc (OFF)';
+                    this.showMessage('Géolocalisation désactivée', 'error');
+                } else {
+                    // Réactiver
+                    this.initGeolocation();
+                    this.isGeolocationEnabled = true;
+                    btn.classList.remove('active');
+                    btn.textContent = '📍 Géoloc';
+                    this.showMessage('Géolocalisation réactivée', 'success');
+                }
+            }
+
+            toggleCompass() {
+                const compass = document.getElementById('compass');
+                const btn = document.getElementById('toggleCompass');
+                
+                this.isCompassVisible = !this.isCompassVisible;
+                compass.style.display = this.isCompassVisible ? 'block' : 'none';
+                
+                if (this.isCompassVisible) {
+                    btn.classList.remove('active');
+                    btn.textContent = '🧭 Compas';
+                } else {
+                    btn.classList.add('active');
+                    btn.textContent = '🧭 Compas (OFF)';
+                }
+            }
+
+            addGeolocatedObject() {
+                if (!this.currentPosition) {
+                    this.showMessage('Position GPS requise pour ajouter un objet', 'error');
+                    return;
+                }
+
+                this.objectCounter++;
+                const coords = this.currentPosition.coords;
+                
+                // Ajouter un léger décalage pour éviter la superposition
+                const offsetLat = coords.latitude + (Math.random() - 0.5) * 0.001;
+                const offsetLon = coords.longitude + (Math.random() - 0.5) * 0.001;
+
+                const object = document.createElement('a-sphere');
+                object.setAttribute('gps-entity-place', `latitude: ${offsetLat}; longitude: ${offsetLon};`);
+                object.setAttribute('material', 'color: purple');
+                object.setAttribute('radius', '8');
+                object.setAttribute('animation', 'property: rotation; to: 0 360 0; loop: true; dur: 3000');
+                object.id = `custom-object-${this.objectCounter}`;
+
+                const text = document.createElement('a-text');
+                text.setAttribute('value', `Objet ${this.objectCounter}`);
+                text.setAttribute('position', '0 12 0');
+                text.setAttribute('align', 'center');
+                text.setAttribute('color', 'white');
+                text.setAttribute('scale', '3 3 3');
+                object.appendChild(text);
+
+                this.scene.appendChild(object);
+                this.showMessage(`Objet ${this.objectCounter} ajouté à votre position`, 'success');
+            }
+
+            clearCustomObjects() {
+                const customObjects = this.scene.querySelectorAll('[id^="custom-object-"]');
+                customObjects.forEach(obj => obj.remove());
+                this.objectCounter = 0;
+                this.showMessage('Objets personnalisés supprimés', 'success');
+            }
+
+            toggleDebugMode() {
+                const btn = document.getElementById('toggleDebug');
+                this.debugMode = !this.debugMode;
+                
+                if (this.debugMode) {
+                    btn.classList.add('active');
+                    btn.textContent = '🐛 Debug (ON)';
+                    this.scene.setAttribute('arjs', 'debugUIEnabled: true');
+                } else {
+                    btn.classList.remove('active');
+                    btn.textContent = '🐛 Debug';
+                    this.scene.setAttribute('arjs', 'debugUIEnabled: false');
+                }
+            }
+
+            handleResize() {
+                // Redimensionner la scène si nécessaire
+                if (this.scene && this.scene.resize) {
+                    this.scene.resize();
+                }
+            }
+
+            showMessage(text, type = 'success') {
+                this.message.innerHTML = `
+                    <div class="spinner"></div>
+                    <h3>${text}</h3>
+                `;
+                this.message.className = `show ${type}`;
+                
+                setTimeout(() => {
+                    this.message.classList.remove('show');
+                }, 3000);
+            }
+
+            hideMessage() {
+                this.message.classList.remove('show');
+            }
+
+            // Calculer la distance entre deux points GPS
+            calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371e3; // Rayon de la Terre en mètres
+                const φ1 = lat1 * Math.PI/180;
+                const φ2 = lat2 * Math.PI/180;
+                const Δφ = (lat2-lat1) * Math.PI/180;
+                const Δλ = (lon2-lon1) * Math.PI/180;
+
+                const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                        Math.cos(φ1) * Math.cos(φ2) *
+                        Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+                return R * c; // Distance en mètres
+            }
+
+            // Obtenir la direction vers un point
+            getBearing(lat1, lon1, lat2, lon2) {
+                const φ1 = lat1 * Math.PI/180;
+                const φ2 = lat2 * Math.PI/180;
+                const Δλ = (lon2-lon1) * Math.PI/180;
+
+                const y = Math.sin(Δλ) * Math.cos(φ2);
+                const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+                const θ = Math.atan2(y, x);
+                return (θ * 180/Math.PI + 360) % 360;
+            }
+        }
+
+        // Démarrer l'application
+        document.addEventListener('DOMContentLoaded', () => {
+            new GeolocationARApp();
+        });
+
+        // Gestion des erreurs globales
+        window.addEventListener('error', (e) => {
+            console.error('Erreur globale:', e.error);
+        });
+
+        // Prévenir le zoom sur mobile
+        document.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
+        });
+
+        // Support pour l'orientation sur mobile
+        if (screen.orientation) {
+            screen.orientation.addEventListener('change', () => {
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 100);
+            });
+        }
+    </script>
+</body>
+</html>
