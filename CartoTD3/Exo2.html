@@ -214,10 +214,12 @@
 </head>
 <body>
     <!-- Message de chargement -->
-    <div id="message">
+    <div id="message" class="show">
         <div class="spinner"></div>
-        <h3>Chargement...</h3>
-        <p>Initialisation de la géolocalisation et de la caméra</p>
+        <h3>Demande d'autorisation</h3>
+        <p>Autorisation requise pour :</p>
+        <p>📷 Accès à la caméra</p>
+        <p>📍 Géolocalisation</p>
     </div>
 
     <!-- Container AR.js pour la géolocalisation -->
@@ -226,7 +228,7 @@
             vr-mode-ui="enabled: false;" 
             renderer="logarithmicDepthBuffer: true;" 
             embedded 
-            arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;"
+            arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false; sourceWidth: 1280; sourceHeight: 720; displayWidth: 1280; displayHeight: 720;"
             id="scene">
             
             <!-- Caméra AR.js -->
@@ -320,6 +322,7 @@
 
     <!-- Contrôles -->
     <div id="controls">
+        <button class="control-btn" id="requestCamera">📷 Caméra</button>
         <button class="control-btn" id="toggleGeoloc">📍 Géoloc</button>
         <button class="control-btn" id="toggleCompass">🧭 Compas</button>
         <button class="control-btn" id="addObject">➕ Objet</button>
@@ -357,14 +360,29 @@
             }
 
             async initAR() {
-                // Attendre que la scène AR.js soit prête
-                return new Promise((resolve) => {
-                    document.addEventListener('DOMContentLoaded', () => {
-                        this.scene = document.getElementById('scene');
-                        console.log('Scène AR.js initialisée');
-                        resolve();
+                // Demander l'accès à la caméra explicitement
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment', // Caméra arrière pour AR
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
                     });
-                });
+                    console.log('Accès à la caméra accordé');
+                    
+                    // Attendre que la scène AR.js soit prête
+                    return new Promise((resolve) => {
+                        document.addEventListener('DOMContentLoaded', () => {
+                            this.scene = document.getElementById('scene');
+                            console.log('Scène AR.js initialisée');
+                            resolve();
+                        });
+                    });
+                } catch (error) {
+                    console.error('Erreur accès caméra:', error);
+                    throw new Error('Accès à la caméra refusé. Veuillez autoriser l\'accès à la caméra.');
+                }
             }
 
             async initGeolocation() {
@@ -440,6 +458,11 @@
             }
 
             setupEventListeners() {
+                // Demande manuelle de caméra
+                document.getElementById('requestCamera').addEventListener('click', () => {
+                    this.requestCameraAccess();
+                });
+
                 // Toggle géolocalisation
                 document.getElementById('toggleGeoloc').addEventListener('click', () => {
                     this.toggleGeolocation();
@@ -594,6 +617,45 @@
                 this.message.classList.remove('show');
             }
 
+            async requestCameraAccess() {
+                try {
+                    this.showMessage('Demande d\'accès à la caméra...', 'success');
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'environment', // Caméra arrière pour AR
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+                    
+                    console.log('Accès à la caméra accordé');
+                    this.showMessage('✅ Caméra activée !', 'success');
+                    
+                    // Arrêter le stream car AR.js va le gérer
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Redémarrer AR.js
+                    if (this.scene) {
+                        this.scene.emit('restart');
+                    }
+                    
+                } catch (error) {
+                    console.error('Erreur accès caméra:', error);
+                    let errorMessage = 'Erreur inconnue';
+                    
+                    if (error.name === 'NotAllowedError') {
+                        errorMessage = 'Accès à la caméra refusé. Veuillez autoriser dans les paramètres du navigateur.';
+                    } else if (error.name === 'NotFoundError') {
+                        errorMessage = 'Aucune caméra trouvée sur cet appareil.';
+                    } else if (error.name === 'NotSupportedError') {
+                        errorMessage = 'Navigateur non compatible avec getUserMedia.';
+                    }
+                    
+                    this.showMessage(errorMessage, 'error');
+                }
+            }
+
             // Calculer la distance entre deux points GPS
             calculateDistance(lat1, lon1, lat2, lon2) {
                 const R = 6371e3; // Rayon de la Terre en mètres
@@ -626,7 +688,10 @@
 
         // Démarrer l'application
         document.addEventListener('DOMContentLoaded', () => {
-            new GeolocationARApp();
+            // Petit délai pour s'assurer que tout est chargé
+            setTimeout(() => {
+                new GeolocationARApp();
+            }, 1000);
         });
 
         // Gestion des erreurs globales
