@@ -7,12 +7,8 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     
-    <!-- AR.js pour la géolocalisation -->
-    <script src="https://cdn.jsdelivr.net/gh/aframevr/aframe@1c2407b26c61958baa93967b5412487cd94b290b/dist/aframe-master.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
-    
-    <!-- Three.js pour les objets 3D -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Babylon.js pour la 3D et l'AR -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
     
     <style>
         * {
@@ -29,14 +25,15 @@
             position: relative;
         }
 
-        /* Interface de géolocalisation */
-        #arjs-container {
+        /* Canvas Babylon.js */
+        #renderCanvas {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: 1;
+            touch-action: none;
         }
 
         /* Interface de contrôle */
@@ -222,86 +219,8 @@
         <p>📍 Géolocalisation</p>
     </div>
 
-    <!-- Container AR.js pour la géolocalisation -->
-    <div id="arjs-container">
-        <!-- Vidéo de la caméra -->
-        <video id="arjs-video" autoplay muted playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); z-index: 1;"></video>
-        
-        <a-scene 
-            vr-mode-ui="enabled: false;" 
-            renderer="logarithmicDepthBuffer: true;" 
-            embedded 
-            arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false; sourceWidth: 1280; sourceHeight: 720; displayWidth: 1280; displayHeight: 720;"
-            id="scene"
-            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2;">
-            
-            <!-- Caméra AR.js -->
-            <a-camera gps-camera rotation-reader></a-camera>
-            
-            <!-- Objets géolocalisés -->
-            <!-- Tour Eiffel (Paris) -->
-            <a-box 
-                gps-entity-place="latitude: 48.8584; longitude: 2.2945;" 
-                material="color: red;" 
-                scale="10 50 10"
-                animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
-                <a-text 
-                    value="Tour Eiffel" 
-                    position="0 25 0" 
-                    align="center" 
-                    color="white"
-                    scale="5 5 5">
-                </a-text>
-            </a-box>
-
-            <!-- Big Ben (Londres) -->
-            <a-cylinder 
-                gps-entity-place="latitude: 51.4994; longitude: -0.1245;" 
-                material="color: blue;" 
-                radius="5" 
-                height="40"
-                animation="property: rotation; to: 0 0 360; loop: true; dur: 8000">
-                <a-text 
-                    value="Big Ben" 
-                    position="0 20 0" 
-                    align="center" 
-                    color="white"
-                    scale="4 4 4">
-                </a-text>
-            </a-cylinder>
-
-            <!-- Empire State Building (New York) -->
-            <a-box 
-                gps-entity-place="latitude: 40.7484; longitude: -73.9857;" 
-                material="color: yellow;" 
-                scale="8 80 8"
-                animation="property: position; to: 0 40 0; loop: true; dur: 2000; dir: alternate">
-                <a-text 
-                    value="Empire State" 
-                    position="0 40 0" 
-                    align="center" 
-                    color="black"
-                    scale="3 3 3">
-                </a-text>
-            </a-box>
-
-            <!-- Objet géolocalisé dynamique -->
-            <a-sphere 
-                id="dynamic-object"
-                gps-entity-place="latitude: 0; longitude: 0;" 
-                material="color: green;" 
-                radius="15"
-                animation="property: scale; to: 1.5 1.5 1.5; loop: true; dur: 1000; dir: alternate">
-                <a-text 
-                    value="Position actuelle" 
-                    position="0 20 0" 
-                    align="center" 
-                    color="white"
-                    scale="2 2 2">
-                </a-text>
-            </a-sphere>
-        </a-scene>
-    </div>
+    <!-- Canvas Babylon.js -->
+    <canvas id="renderCanvas"></canvas>
 
     <!-- Compas 2D -->
     <div id="compass">
@@ -335,402 +254,290 @@
     </div>
 
     <script>
-        class GeolocationARApp {
-            constructor() {
-                this.message = document.getElementById('message');
-                this.scene = null;
-                this.geolocationWatchId = null;
-                this.currentPosition = null;
-                this.currentHeading = 0;
-                this.isGeolocationEnabled = true;
-                this.isCompassVisible = true;
-                this.debugMode = false;
-                this.objectCounter = 0;
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+        const message = document.getElementById('message');
+        const geolocInfo = document.getElementById('geoloc-info');
+        const compassNeedle = document.getElementById('compass-needle');
+
+        // --- Paramètres de la scène ---
+        const distance = 50; // Distance des objets géolocalisés
+        const cubeSize = 2;
+        const smoothingFactor = 0.05;
+
+        // Variables pour le lissage de l'orientation
+        let targetAngleY = 0;
+        let smoothedAngleY = 0;
+        let currentPosition = null;
+        let geolocationWatchId = null;
+        let isGeolocationEnabled = true;
+        let isCompassVisible = true;
+        let objectCounter = 0;
+        let customObjects = [];
+
+        const createScene = () => {
+            const scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color3(0, 0, 0);
+            
+            const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+            light.intensity = 1.0;
+            
+            const camera = new BABYLON.FreeCamera("camera", new BABYLON.Vector3(0, 0, 0), scene);
+            camera.setTarget(BABYLON.Vector3.Zero());
+            
+            // Objets géolocalisés fixes (monuments célèbres)
+            createGeolocatedObjects(scene);
+            
+            // Initialiser la caméra et l'orientation
+            setupARBackground(scene);
+            setupOrientationListener();
+            initGeolocation();
+
+            return scene;
+        };
+
+        const createGeolocatedObjects = (scene) => {
+            // Tour Eiffel (Paris) - Nord
+            const tourEiffel = BABYLON.MeshBuilder.CreateBox("TourEiffel", { size: cubeSize * 2 }, scene);
+            tourEiffel.position = new BABYLON.Vector3(0, cubeSize, distance);
+            const matTourEiffel = new BABYLON.StandardMaterial("matTourEiffel", scene);
+            matTourEiffel.emissiveColor = BABYLON.Color3.Red();
+            matTourEiffel.diffuseColor = BABYLON.Color3.Red();
+            tourEiffel.material = matTourEiffel;
+            
+            // Big Ben (Londres) - Est
+            const bigBen = BABYLON.MeshBuilder.CreateCylinder("BigBen", { height: cubeSize * 3, diameter: cubeSize }, scene);
+            bigBen.position = new BABYLON.Vector3(distance, cubeSize * 1.5, 0);
+            const matBigBen = new BABYLON.StandardMaterial("matBigBen", scene);
+            matBigBen.emissiveColor = BABYLON.Color3.Blue();
+            matBigBen.diffuseColor = BABYLON.Color3.Blue();
+            bigBen.material = matBigBen;
+            
+            // Empire State (New York) - Sud
+            const empireState = BABYLON.MeshBuilder.CreateBox("EmpireState", { size: cubeSize * 1.5 }, scene);
+            empireState.position = new BABYLON.Vector3(0, cubeSize * 2, -distance);
+            const matEmpireState = new BABYLON.StandardMaterial("matEmpireState", scene);
+            matEmpireState.emissiveColor = BABYLON.Color3.Yellow();
+            matEmpireState.diffuseColor = BABYLON.Color3.Yellow();
+            empireState.material = matEmpireState;
+            
+            // Objet à votre position actuelle - Ouest
+            const currentObj = BABYLON.MeshBuilder.CreateSphere("CurrentPos", { diameter: cubeSize }, scene);
+            currentObj.position = new BABYLON.Vector3(-distance, cubeSize, 0);
+            const matCurrent = new BABYLON.StandardMaterial("matCurrent", scene);
+            matCurrent.emissiveColor = BABYLON.Color3.Green();
+            matCurrent.diffuseColor = BABYLON.Color3.Green();
+            currentObj.material = matCurrent;
+            
+            // Animations
+            BABYLON.Animation.CreateAndStartAnimation("tourEiffelRot", tourEiffel, "rotation.y", 60, 120, 0, Math.PI * 2, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            BABYLON.Animation.CreateAndStartAnimation("bigBenRot", bigBen, "rotation.y", 60, 80, 0, Math.PI * 2, BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+            BABYLON.Animation.CreateAndStartAnimation("currentPulse", currentObj, "scaling", 60, 30, new BABYLON.Vector3(1, 1, 1), new BABYLON.Vector3(1.2, 1.2, 1.2), BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+        };
+
+        const setupARBackground = (scene) => {
+            navigator.mediaDevices.getUserMedia({ 
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                } 
+            })
+            .then(stream => {
+                const video = document.createElement('video');
+                video.setAttribute('playsinline', '');
+                video.setAttribute('autoplay', '');
+                video.setAttribute('muted', '');
+                video.srcObject = stream;
+                video.play();
                 
-                this.init();
-            }
-
-            async init() {
-                try {
-                    this.setupEventListeners();
-                    await this.initAR();
-                    await this.initGeolocation();
-                    
-                    // Essayer d'afficher le flux vidéo dès l'initialisation
-                    setTimeout(() => {
-                        this.requestCameraAccess();
-                    }, 3000);
-                    
-                    this.hideMessage();
-                    this.showMessage('Application initialisée ! Géolocalisation activée.', 'success');
-                } catch (error) {
-                    console.error('Erreur d\'initialisation:', error);
-                    this.showMessage('Erreur: ' + error.message, 'error');
-                }
-            }
-
-            async initAR() {
-                // Attendre que la scène AR.js soit prête
-                return new Promise((resolve) => {
-                    document.addEventListener('DOMContentLoaded', () => {
-                        this.scene = document.getElementById('scene');
-                        console.log('Scène AR.js initialisée');
-                        
-                        // Connecter le flux vidéo d'AR.js à notre élément vidéo
-                        this.connectVideoStream();
-                        
-                        resolve();
-                    });
-                });
-            }
-
-            connectVideoStream() {
-                // Attendre que AR.js initialise sa caméra
-                setTimeout(() => {
-                    const arjsVideo = document.getElementById('arjs-video');
-                    const arjsVideoElement = document.querySelector('a-scene video');
-                    
-                    if (arjsVideoElement) {
-                        // Copier le srcObject de la vidéo AR.js vers notre vidéo d'affichage
-                        arjsVideo.srcObject = arjsVideoElement.srcObject;
-                        console.log('Flux vidéo connecté');
-                        this.showMessage('✅ Caméra activée et flux vidéo affiché !', 'success');
-                    } else {
-                        console.log('Vidéo AR.js pas encore prête, nouvelle tentative...');
-                        this.connectVideoStream(); // Réessayer
-                    }
-                }, 2000);
-            }
-
-            async initGeolocation() {
-                if (!navigator.geolocation) {
-                    throw new Error('Géolocalisation non supportée par ce navigateur');
-                }
-
-                // Demander la géolocalisation
-                const position = await this.getCurrentPosition();
-                this.currentPosition = position;
-                this.updateGeolocationInfo(position);
-
-                // Surveiller les changements de position
-                this.geolocationWatchId = navigator.geolocation.watchPosition(
-                    (position) => {
-                        this.currentPosition = position;
-                        this.updateGeolocationInfo(position);
-                        this.updateDynamicObject(position);
-                    },
-                    (error) => {
-                        console.error('Erreur de géolocalisation:', error);
-                        this.showMessage('Erreur de géolocalisation: ' + error.message, 'error');
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 1000
-                    }
-                );
-
-                // Surveiller l'orientation (compas)
-                if (window.DeviceOrientationEvent) {
-                    window.addEventListener('deviceorientation', (event) => {
-                        this.updateCompass(event.alpha);
-                    });
-                }
-            }
-
-            getCurrentPosition() {
-                return new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0
-                    });
-                });
-            }
-
-            updateGeolocationInfo(position) {
-                const coords = position.coords;
-                document.getElementById('lat').textContent = coords.latitude.toFixed(6);
-                document.getElementById('lon').textContent = coords.longitude.toFixed(6);
-                document.getElementById('alt').textContent = coords.altitude ? coords.altitude.toFixed(1) : 'N/A';
-                document.getElementById('accuracy').textContent = coords.accuracy.toFixed(1);
-                document.getElementById('heading').textContent = coords.heading ? coords.heading.toFixed(1) : 'N/A';
-                document.getElementById('speed').textContent = coords.speed ? (coords.speed * 3.6).toFixed(1) : 'N/A';
-            }
-
-            updateCompass(heading) {
-                if (heading !== null) {
-                    this.currentHeading = heading;
-                    const needle = document.getElementById('compass-needle');
-                    needle.style.transform = `translate(-50%, -100%) rotate(${heading}deg)`;
-                }
-            }
-
-            updateDynamicObject(position) {
-                const dynamicObject = document.getElementById('dynamic-object');
-                if (dynamicObject) {
-                    dynamicObject.setAttribute('gps-entity-place', 
-                        `latitude: ${position.coords.latitude}; longitude: ${position.coords.longitude};`);
-                }
-            }
-
-            setupEventListeners() {
-                // Demande manuelle de caméra
-                document.getElementById('requestCamera').addEventListener('click', () => {
-                    this.requestCameraAccess();
-                });
-
-                // Toggle géolocalisation
-                document.getElementById('toggleGeoloc').addEventListener('click', () => {
-                    this.toggleGeolocation();
-                });
-
-                // Toggle compas
-                document.getElementById('toggleCompass').addEventListener('click', () => {
-                    this.toggleCompass();
-                });
-
-                // Ajouter objet
-                document.getElementById('addObject').addEventListener('click', () => {
-                    this.addGeolocatedObject();
-                });
-
-                // Effacer objets
-                document.getElementById('clearObjects').addEventListener('click', () => {
-                    this.clearCustomObjects();
-                });
-
-                // Toggle debug
-                document.getElementById('toggleDebug').addEventListener('click', () => {
-                    this.toggleDebugMode();
-                });
-
-                // Redimensionnement
-                window.addEventListener('resize', () => {
-                    this.handleResize();
-                });
-
-                // Orientation mobile
-                window.addEventListener('orientationchange', () => {
-                    setTimeout(() => {
-                        this.handleResize();
-                    }, 100);
-                });
-            }
-
-            toggleGeolocation() {
-                const btn = document.getElementById('toggleGeoloc');
+                const background = new BABYLON.Layer("background", null, scene, true);
+                background.texture = new BABYLON.VideoTexture("video", video, scene, true);
                 
-                if (this.isGeolocationEnabled) {
-                    // Désactiver
-                    if (this.geolocationWatchId) {
-                        navigator.geolocation.clearWatch(this.geolocationWatchId);
-                        this.geolocationWatchId = null;
-                    }
-                    this.isGeolocationEnabled = false;
-                    btn.classList.add('active');
-                    btn.textContent = '📍 Géoloc (OFF)';
-                    this.showMessage('Géolocalisation désactivée', 'error');
-                } else {
-                    // Réactiver
-                    this.initGeolocation();
-                    this.isGeolocationEnabled = true;
-                    btn.classList.remove('active');
-                    btn.textContent = '📍 Géoloc';
-                    this.showMessage('Géolocalisation réactivée', 'success');
+                showMessage('✅ Caméra activée !', 'success');
+                hideMessage();
+            })
+            .catch(err => {
+                console.error('Erreur caméra:', err);
+                showMessage('Erreur: Caméra inaccessible. Assurez-vous d\'utiliser HTTPS.', 'error');
+            });
+        };
+
+        const setupOrientationListener = () => {
+            window.addEventListener("deviceorientationabsolute", (event) => {
+                if (event.alpha !== null) {
+                    // Correction avec l'angle de l'écran
+                    const screenAngle = screen.orientation.angle || 0;
+                    const compensatedAlpha = event.alpha - screenAngle;
+
+                    targetAngleY = -compensatedAlpha;
+                    updateCompass(compensatedAlpha);
                 }
+            }, true);
+        };
+
+        const initGeolocation = () => {
+            if (!navigator.geolocation) {
+                showMessage('Géolocalisation non supportée', 'error');
+                return;
             }
 
-            toggleCompass() {
-                const compass = document.getElementById('compass');
-                const btn = document.getElementById('toggleCompass');
-                
-                this.isCompassVisible = !this.isCompassVisible;
-                compass.style.display = this.isCompassVisible ? 'block' : 'none';
-                
-                if (this.isCompassVisible) {
-                    btn.classList.remove('active');
-                    btn.textContent = '🧭 Compas';
-                } else {
-                    btn.classList.add('active');
-                    btn.textContent = '🧭 Compas (OFF)';
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    currentPosition = position;
+                    updateGeolocationInfo(position);
+                    showMessage('✅ Géolocalisation activée !', 'success');
+                },
+                (error) => {
+                    console.error('Erreur géolocalisation:', error);
+                    showMessage('Erreur géolocalisation: ' + error.message, 'error');
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+
+            geolocationWatchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    currentPosition = position;
+                    updateGeolocationInfo(position);
+                },
+                (error) => {
+                    console.error('Erreur géolocalisation:', error);
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 1000 }
+            );
+        };
+
+        const updateGeolocationInfo = (position) => {
+            const coords = position.coords;
+            document.getElementById('lat').textContent = coords.latitude.toFixed(6);
+            document.getElementById('lon').textContent = coords.longitude.toFixed(6);
+            document.getElementById('alt').textContent = coords.altitude ? coords.altitude.toFixed(1) : 'N/A';
+            document.getElementById('accuracy').textContent = coords.accuracy.toFixed(1);
+            document.getElementById('heading').textContent = coords.heading ? coords.heading.toFixed(1) : 'N/A';
+            document.getElementById('speed').textContent = coords.speed ? (coords.speed * 3.6).toFixed(1) : 'N/A';
+        };
+
+        const updateCompass = (heading) => {
+            if (heading !== null && compassNeedle) {
+                compassNeedle.style.transform = `translate(-50%, -100%) rotate(${heading}deg)`;
+            }
+        };
+
+        const addGeolocatedObject = () => {
+            if (!currentPosition) {
+                showMessage('Position GPS requise', 'error');
+                return;
+            }
+
+            objectCounter++;
+            const angle = (objectCounter * 45) % 360; // Répartir les objets
+            const radians = (angle * Math.PI) / 180;
+            const x = Math.cos(radians) * distance;
+            const z = Math.sin(radians) * distance;
+
+            const object = BABYLON.MeshBuilder.CreateSphere(`CustomObj${objectCounter}`, { diameter: cubeSize }, scene);
+            object.position = new BABYLON.Vector3(x, cubeSize, z);
+            
+            const material = new BABYLON.StandardMaterial(`matCustom${objectCounter}`, scene);
+            material.emissiveColor = new BABYLON.Color3(Math.random(), Math.random(), Math.random());
+            object.material = material;
+
+            customObjects.push(object);
+            showMessage(`Objet ${objectCounter} ajouté`, 'success');
+        };
+
+        const clearCustomObjects = () => {
+            customObjects.forEach(obj => obj.dispose());
+            customObjects = [];
+            objectCounter = 0;
+            showMessage('Objets supprimés', 'success');
+        };
+
+        const toggleGeolocation = () => {
+            const btn = document.getElementById('toggleGeoloc');
+            
+            if (isGeolocationEnabled) {
+                if (geolocationWatchId) {
+                    navigator.geolocation.clearWatch(geolocationWatchId);
+                    geolocationWatchId = null;
                 }
+                isGeolocationEnabled = false;
+                btn.classList.add('active');
+                btn.textContent = '📍 Géoloc (OFF)';
+                showMessage('Géolocalisation désactivée', 'error');
+            } else {
+                initGeolocation();
+                isGeolocationEnabled = true;
+                btn.classList.remove('active');
+                btn.textContent = '📍 Géoloc';
+                showMessage('Géolocalisation réactivée', 'success');
             }
+        };
 
-            addGeolocatedObject() {
-                if (!this.currentPosition) {
-                    this.showMessage('Position GPS requise pour ajouter un objet', 'error');
-                    return;
-                }
-
-                this.objectCounter++;
-                const coords = this.currentPosition.coords;
-                
-                // Ajouter un léger décalage pour éviter la superposition
-                const offsetLat = coords.latitude + (Math.random() - 0.5) * 0.001;
-                const offsetLon = coords.longitude + (Math.random() - 0.5) * 0.001;
-
-                const object = document.createElement('a-sphere');
-                object.setAttribute('gps-entity-place', `latitude: ${offsetLat}; longitude: ${offsetLon};`);
-                object.setAttribute('material', 'color: purple');
-                object.setAttribute('radius', '8');
-                object.setAttribute('animation', 'property: rotation; to: 0 360 0; loop: true; dur: 3000');
-                object.id = `custom-object-${this.objectCounter}`;
-
-                const text = document.createElement('a-text');
-                text.setAttribute('value', `Objet ${this.objectCounter}`);
-                text.setAttribute('position', '0 12 0');
-                text.setAttribute('align', 'center');
-                text.setAttribute('color', 'white');
-                text.setAttribute('scale', '3 3 3');
-                object.appendChild(text);
-
-                this.scene.appendChild(object);
-                this.showMessage(`Objet ${this.objectCounter} ajouté à votre position`, 'success');
+        const toggleCompass = () => {
+            const compass = document.getElementById('compass');
+            const btn = document.getElementById('toggleCompass');
+            
+            isCompassVisible = !isCompassVisible;
+            compass.style.display = isCompassVisible ? 'block' : 'none';
+            
+            if (isCompassVisible) {
+                btn.classList.remove('active');
+                btn.textContent = '🧭 Compas';
+            } else {
+                btn.classList.add('active');
+                btn.textContent = '🧭 Compas (OFF)';
             }
+        };
 
-            clearCustomObjects() {
-                const customObjects = this.scene.querySelectorAll('[id^="custom-object-"]');
-                customObjects.forEach(obj => obj.remove());
-                this.objectCounter = 0;
-                this.showMessage('Objets personnalisés supprimés', 'success');
-            }
-
-            toggleDebugMode() {
-                const btn = document.getElementById('toggleDebug');
-                this.debugMode = !this.debugMode;
-                
-                if (this.debugMode) {
-                    btn.classList.add('active');
-                    btn.textContent = '🐛 Debug (ON)';
-                    this.scene.setAttribute('arjs', 'debugUIEnabled: true');
-                } else {
-                    btn.classList.remove('active');
-                    btn.textContent = '🐛 Debug';
-                    this.scene.setAttribute('arjs', 'debugUIEnabled: false');
-                }
-            }
-
-            handleResize() {
-                // Redimensionner la scène si nécessaire
-                if (this.scene && this.scene.resize) {
-                    this.scene.resize();
-                }
-            }
-
-            showMessage(text, type = 'success') {
-                this.message.innerHTML = `
-                    <div class="spinner"></div>
-                    <h3>${text}</h3>
-                `;
-                this.message.className = `show ${type}`;
-                
-                setTimeout(() => {
-                    this.message.classList.remove('show');
-                }, 3000);
-            }
-
-            hideMessage() {
-                this.message.classList.remove('show');
-            }
-
-            async requestCameraAccess() {
-                try {
-                    this.showMessage('Demande d\'accès à la caméra...', 'success');
-                    
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'environment', // Caméra arrière pour AR
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
-                        }
-                    });
-                    
-                    console.log('Accès à la caméra accordé');
-                    
-                    // Afficher directement le flux vidéo
-                    const arjsVideo = document.getElementById('arjs-video');
-                    arjsVideo.srcObject = stream;
-                    
-                    this.showMessage('✅ Caméra activée et flux vidéo affiché !', 'success');
-                    
-                    // Redémarrer AR.js pour qu'il utilise le même stream
-                    if (this.scene) {
-                        this.scene.emit('restart');
-                    }
-                    
-                } catch (error) {
-                    console.error('Erreur accès caméra:', error);
-                    let errorMessage = 'Erreur inconnue';
-                    
-                    if (error.name === 'NotAllowedError') {
-                        errorMessage = 'Accès à la caméra refusé. Veuillez autoriser dans les paramètres du navigateur.';
-                    } else if (error.name === 'NotFoundError') {
-                        errorMessage = 'Aucune caméra trouvée sur cet appareil.';
-                    } else if (error.name === 'NotSupportedError') {
-                        errorMessage = 'Navigateur non compatible avec getUserMedia.';
-                    }
-                    
-                    this.showMessage(errorMessage, 'error');
-                }
-            }
-
-            // Calculer la distance entre deux points GPS
-            calculateDistance(lat1, lon1, lat2, lon2) {
-                const R = 6371e3; // Rayon de la Terre en mètres
-                const φ1 = lat1 * Math.PI/180;
-                const φ2 = lat2 * Math.PI/180;
-                const Δφ = (lat2-lat1) * Math.PI/180;
-                const Δλ = (lon2-lon1) * Math.PI/180;
-
-                const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                        Math.cos(φ1) * Math.cos(φ2) *
-                        Math.sin(Δλ/2) * Math.sin(Δλ/2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-                return R * c; // Distance en mètres
-            }
-
-            // Obtenir la direction vers un point
-            getBearing(lat1, lon1, lat2, lon2) {
-                const φ1 = lat1 * Math.PI/180;
-                const φ2 = lat2 * Math.PI/180;
-                const Δλ = (lon2-lon1) * Math.PI/180;
-
-                const y = Math.sin(Δλ) * Math.cos(φ2);
-                const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-
-                const θ = Math.atan2(y, x);
-                return (θ * 180/Math.PI + 360) % 360;
-            }
-        }
-
-        // Démarrer l'application
-        document.addEventListener('DOMContentLoaded', () => {
-            // Petit délai pour s'assurer que tout est chargé
+        const showMessage = (text, type = 'success') => {
+            message.innerHTML = `<h3>${text}</h3>`;
+            message.className = `show ${type}`;
+            
             setTimeout(() => {
-                new GeolocationARApp();
-            }, 1000);
+                message.classList.remove('show');
+            }, 3000);
+        };
+
+        const hideMessage = () => {
+            message.classList.remove('show');
+        };
+
+        // Setup des événements
+        document.getElementById('requestCamera').addEventListener('click', () => {
+            setupARBackground(scene);
+        });
+        document.getElementById('toggleGeoloc').addEventListener('click', toggleGeolocation);
+        document.getElementById('toggleCompass').addEventListener('click', toggleCompass);
+        document.getElementById('addObject').addEventListener('click', addGeolocatedObject);
+        document.getElementById('clearObjects').addEventListener('click', clearCustomObjects);
+
+        // Créer la scène
+        const scene = createScene();
+        
+        // Boucle de rendu
+        engine.runRenderLoop(() => {
+            let delta = targetAngleY - smoothedAngleY;
+            // Gère le passage de 360° à 0°
+            if (Math.abs(delta) > 180) {
+                delta -= Math.sign(delta) * 360;
+            }
+            
+            smoothedAngleY += delta * smoothingFactor;
+            scene.activeCamera.rotation.y = BABYLON.Tools.ToRadians(smoothedAngleY);
+            
+            scene.render();
         });
 
-        // Gestion des erreurs globales
-        window.addEventListener('error', (e) => {
-            console.error('Erreur globale:', e.error);
+        // Redimensionnement
+        window.addEventListener('resize', () => {
+            engine.resize();
         });
 
-        // Prévenir le zoom sur mobile
+        // Support mobile
         document.addEventListener('gesturestart', (e) => {
             e.preventDefault();
         });
-
-        // Support pour l'orientation sur mobile
-        if (screen.orientation) {
-            screen.orientation.addEventListener('change', () => {
-                setTimeout(() => {
-                    window.dispatchEvent(new Event('resize'));
-                }, 100);
-            });
-        }
     </script>
 </body>
 </html>
