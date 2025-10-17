@@ -101,7 +101,7 @@ function Scene3D({ theme, transition, seed }) {
       <CameraRig />
 
       {/* Terrain procédural */}
-      <Terrain theme={theme} transition={transition} seed={seed} />
+      <Terrain key={`terrain-${seed}`} theme={theme} transition={transition} seed={seed} />
 
       {/* Système de particules */}
       <Particles theme={theme} />

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { generateTerrainHeight } from '../utils/noise';
@@ -10,23 +10,14 @@ import { generateTerrainHeight } from '../utils/noise';
 export default function Terrain({ theme, transition = false, seed = 0 }) {
   const meshRef = useRef();
   const materialRef = useRef();
-  const geometryRef = useRef();
 
   // Paramètres du terrain
   const width = 100;
   const height = 100;
   const segments = 100; // Plus il y a de segments, plus le terrain est détaillé
 
-  // Génération et mise à jour du terrain quand le thème ou la seed change
-  useEffect(() => {
-    if (!meshRef.current) return;
-
-    // Dispose de l'ancienne géométrie si elle existe
-    if (geometryRef.current) {
-      geometryRef.current.dispose();
-    }
-
-    // Création d'une nouvelle géométrie
+  // Génération du terrain basé sur le thème et la seed
+  const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(width, height, segments, segments);
 
     // Récupération des paramètres du thème
@@ -58,17 +49,17 @@ export default function Terrain({ theme, transition = false, seed = 0 }) {
     // Recalcul des normales pour un éclairage correct
     geo.computeVertexNormals();
 
-    // Mise à jour de la géométrie du mesh
-    meshRef.current.geometry = geo;
-    geometryRef.current = geo;
+    return geo;
+  }, [theme, seed]);
 
-    // Cleanup: dispose de la géométrie quand le composant est démonté
+  // Cleanup de la géométrie au démontage du composant
+  useEffect(() => {
     return () => {
-      if (geometryRef.current) {
-        geometryRef.current.dispose();
+      if (geometry) {
+        geometry.dispose();
       }
     };
-  }, [theme, seed]);
+  }, [geometry]);
 
   // Animation douce du terrain (oscillation légère)
   useFrame((state) => {
@@ -107,6 +98,7 @@ export default function Terrain({ theme, transition = false, seed = 0 }) {
   return (
     <mesh
       ref={meshRef}
+      geometry={geometry}
       rotation={[-Math.PI / 2, 0, 0]} // Rotation pour mettre le terrain à plat
       position={[0, -2, 0]}
       receiveShadow

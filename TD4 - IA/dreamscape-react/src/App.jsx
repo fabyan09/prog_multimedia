@@ -52,9 +52,9 @@ function App() {
       // Sauvegarde dans le localStorage
       localStorage.setItem('dreamscape-theme', keyword);
 
-      // Fin de la transition
+      // Reload de la page pour appliquer les changements
       setTimeout(() => {
-        setIsTransitioning(false);
+        window.location.reload();
       }, 500);
     }, 300);
   };
