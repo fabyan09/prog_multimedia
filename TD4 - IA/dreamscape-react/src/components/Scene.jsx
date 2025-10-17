@@ -1,24 +1,36 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import Terrain from './Terrain';
 import Particles from './Particles';
+import Player from './Player';
+import SceneObjects from './SceneObjects';
 
 /**
- * Composant CameraRig - Gère la rotation automatique de la caméra
+ * Composant CameraRig - Gère le suivi de la caméra sur le joueur
  */
-function CameraRig() {
-  const groupRef = useRef();
+function CameraRig({ playerPosition }) {
+  const cameraRef = useRef();
 
   useFrame((state) => {
-    if (groupRef.current) {
-      // Rotation lente et douce autour du monde
-      groupRef.current.rotation.y = state.clock.getElapsedTime() * 0.05;
+    if (cameraRef.current && playerPosition) {
+      // Position de la caméra derrière et au-dessus du joueur
+      const targetX = playerPosition.x;
+      const targetY = playerPosition.y + 12;
+      const targetZ = playerPosition.z + 20;
+
+      // Smooth camera follow (lerp pour un mouvement fluide)
+      cameraRef.current.position.x += (targetX - cameraRef.current.position.x) * 0.1;
+      cameraRef.current.position.y += (targetY - cameraRef.current.position.y) * 0.1;
+      cameraRef.current.position.z += (targetZ - cameraRef.current.position.z) * 0.1;
+
+      // La caméra regarde le joueur
+      cameraRef.current.lookAt(playerPosition.x, playerPosition.y, playerPosition.z);
     }
   });
 
-  return <group ref={groupRef} />;
+  return <PerspectiveCamera ref={cameraRef} makeDefault position={[0, 15, 30]} fov={60} />;
 }
 
 /**
@@ -74,6 +86,8 @@ function Lights({ theme }) {
  * Composant Scene3D - Contenu de la scène 3D
  */
 function Scene3D({ theme, transition, seed }) {
+  const [playerPosition, setPlayerPosition] = useState({ x: 0, y: 0, z: 0 });
+
   return (
     <>
       {/* Configuration du fog (brouillard) */}
@@ -85,23 +99,17 @@ function Scene3D({ theme, transition, seed }) {
       {/* Éclairage */}
       <Lights theme={theme} />
 
-      {/* Caméra avec contrôles orbitaux */}
-      <PerspectiveCamera makeDefault position={[0, 15, 30]} fov={60} />
-      <OrbitControls
-        enablePan={false}
-        minDistance={10}
-        maxDistance={80}
-        minPolarAngle={Math.PI / 6}
-        maxPolarAngle={Math.PI / 2.5}
-        enableDamping
-        dampingFactor={0.05}
-      />
-
-      {/* Rotation automatique de la caméra */}
-      <CameraRig />
+      {/* Caméra qui suit le joueur */}
+      <CameraRig playerPosition={playerPosition} />
 
       {/* Terrain procédural */}
       <Terrain key={`terrain-${seed}`} theme={theme} transition={transition} seed={seed} />
+
+      {/* Joueur (cube contrôlable) */}
+      <Player theme={theme} seed={seed} onPositionChange={setPlayerPosition} />
+
+      {/* Objets de scène (arbres, bonhommes de neige, etc.) */}
+      <SceneObjects theme={theme} seed={seed} />
 
       {/* Système de particules */}
       <Particles theme={theme} />

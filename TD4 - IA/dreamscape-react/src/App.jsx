@@ -27,9 +27,29 @@ function App() {
   // Clé de régénération pour forcer un nouveau monde même avec le même thème
   const [regenerationKey, setRegenerationKey] = useState(0);
 
+  // État pour la visibilité du menu
+  const [menuVisible, setMenuVisible] = useState(true);
+
+  // État pour détecter le mouvement du joueur
+  const [playerMoved, setPlayerMoved] = useState(false);
+
   // Animation d'entrée au chargement
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100);
+  }, []);
+
+  // Masquer le menu lors du mouvement du joueur
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const movementKeys = ['z', 'q', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
+      if (movementKeys.includes(e.key.toLowerCase())) {
+        setPlayerMoved(true);
+        setMenuVisible(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   /**
@@ -72,8 +92,19 @@ function App() {
       {/* Scène 3D en arrière-plan */}
       <Scene theme={currentTheme} transition={isTransitioning} seed={regenerationKey} />
 
+      {/* Bouton pour afficher/masquer le menu */}
+      {playerMoved && (
+        <button
+          className={`menu-toggle ${menuVisible ? 'active' : ''}`}
+          onClick={() => setMenuVisible(!menuVisible)}
+          title={menuVisible ? 'Masquer le menu' : 'Afficher le menu'}
+        >
+          {menuVisible ? '✕' : '☰'}
+        </button>
+      )}
+
       {/* Interface utilisateur flottante */}
-      <div className="ui-container">
+      <div className={`ui-container ${!menuVisible ? 'hidden' : ''}`}>
         <div className="ui-header">
           <h1 className="title">DreamScape</h1>
           <p className="subtitle">Générateur de Mondes 3D Procéduraux</p>
@@ -134,8 +165,8 @@ function App() {
 
       {/* Instructions */}
       <div className="instructions">
-        <p>🖱️ Clic + Glisser pour tourner</p>
-        <p>🔍 Molette pour zoomer</p>
+        <p>🎮 ZQSD ou ← ↑ → ↓ pour se déplacer</p>
+        <p>📦 Explorez le monde avec votre cube !</p>
       </div>
 
       {/* Signature */}
