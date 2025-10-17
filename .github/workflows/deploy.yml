@@ -26,18 +26,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'TD4 - IA/dreamscape-react/package-lock.json'
 
       - name: Install dependencies
-        run: |
-          cd "TD4 - IA/dreamscape-react"
-          npm ci
+        working-directory: 'TD4 - IA/dreamscape-react'
+        run: npm install
 
       - name: Build
-        run: |
-          cd "TD4 - IA/dreamscape-react"
-          npm run build
+        working-directory: 'TD4 - IA/dreamscape-react'
+        run: npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
