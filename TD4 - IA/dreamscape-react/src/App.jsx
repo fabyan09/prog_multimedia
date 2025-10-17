@@ -33,6 +33,12 @@ function App() {
   // État pour détecter le mouvement du joueur
   const [playerMoved, setPlayerMoved] = useState(false);
 
+  // État pour la couleur du joueur
+  const [playerColor, setPlayerColor] = useState(() => {
+    const saved = localStorage.getItem('dreamscape-player-color');
+    return saved || '#ff6b6b';
+  });
+
   // Animation d'entrée au chargement
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100);
@@ -90,7 +96,7 @@ function App() {
   return (
     <div className={`app ${isLoaded ? 'loaded' : ''}`}>
       {/* Scène 3D en arrière-plan */}
-      <Scene theme={currentTheme} transition={isTransitioning} seed={regenerationKey} />
+      <Scene theme={currentTheme} transition={isTransitioning} seed={regenerationKey} playerColor={playerColor} />
 
       {/* Bouton pour afficher/masquer le menu */}
       {playerMoved && (
@@ -132,6 +138,23 @@ function App() {
             <span className="world-label">Monde actuel :</span>
             <span className="world-name">{currentTheme.name}</span>
           </div>
+
+          {/* Sélecteur de couleur du personnage */}
+          <div className="color-selector">
+            <label className="color-label">Couleur du personnage :</label>
+            <div className="color-input-wrapper">
+              <input
+                type="color"
+                value={playerColor}
+                onChange={(e) => {
+                  setPlayerColor(e.target.value);
+                  localStorage.setItem('dreamscape-player-color', e.target.value);
+                }}
+                className="color-input"
+              />
+              <span className="color-preview" style={{ backgroundColor: playerColor }}></span>
+            </div>
+          </div>
         </form>
 
         {/* Suggestions de mots-clés */}
@@ -166,7 +189,9 @@ function App() {
       {/* Instructions */}
       <div className="instructions">
         <p>🎮 ZQSD ou ← ↑ → ↓ pour se déplacer</p>
-        <p>📦 Explorez le monde avec votre cube !</p>
+        <p>🚀 ESPACE pour sauter</p>
+        <p>📱 Sur mobile : inclinez votre téléphone</p>
+        <p>🌍 Explorez la grande carte !</p>
       </div>
 
       {/* Signature */}

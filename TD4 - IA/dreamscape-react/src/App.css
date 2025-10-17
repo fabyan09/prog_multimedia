@@ -225,6 +225,57 @@ body {
   letter-spacing: 1px;
 }
 
+/* Sélecteur de couleur du personnage */
+.color-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+.color-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.color-input-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+}
+
+.color-input {
+  width: 60px;
+  height: 40px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: transparent;
+}
+
+.color-input:hover {
+  border-color: #00ffff;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+}
+
+.color-preview {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s ease;
+}
+
+.color-preview:hover {
+  transform: scale(1.1);
+}
+
 /* Suggestions */
 .suggestions {
   margin-top: 15px;

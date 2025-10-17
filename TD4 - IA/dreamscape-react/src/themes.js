@@ -127,8 +127,8 @@ export const themes = {
   cyberpunk: {
     name: 'Cyberpunk',
     terrain: {
-      color: '#0a0a1a',
-      secondaryColor: '#1a0a2e',
+      color: '#2d1b4e',
+      secondaryColor: '#4a2c6e',
       scale: 0.15,
       amplitude: 1.5,
       octaves: 3

@@ -11,10 +11,10 @@ export default function Terrain({ theme, transition = false, seed = 0 }) {
   const meshRef = useRef();
   const materialRef = useRef();
 
-  // Paramètres du terrain
-  const width = 100;
-  const height = 100;
-  const segments = 100; // Plus il y a de segments, plus le terrain est détaillé
+  // Paramètres du terrain - MAP AGRANDIE pour exploration libre
+  const width = 300;
+  const height = 300;
+  const segments = 150; // Plus il y a de segments, plus le terrain est détaillé
 
   // Génération du terrain basé sur le thème et la seed
   const geometry = useMemo(() => {

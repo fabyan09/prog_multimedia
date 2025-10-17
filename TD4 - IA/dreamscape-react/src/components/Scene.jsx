@@ -85,7 +85,7 @@ function Lights({ theme }) {
 /**
  * Composant Scene3D - Contenu de la scène 3D
  */
-function Scene3D({ theme, transition, seed }) {
+function Scene3D({ theme, transition, seed, playerColor }) {
   const [playerPosition, setPlayerPosition] = useState({ x: 0, y: 0, z: 0 });
 
   return (
@@ -105,8 +105,8 @@ function Scene3D({ theme, transition, seed }) {
       {/* Terrain procédural */}
       <Terrain key={`terrain-${seed}`} theme={theme} transition={transition} seed={seed} />
 
-      {/* Joueur (cube contrôlable) */}
-      <Player theme={theme} seed={seed} onPositionChange={setPlayerPosition} />
+      {/* Joueur (personnage humain contrôlable) */}
+      <Player theme={theme} seed={seed} onPositionChange={setPlayerPosition} playerColor={playerColor} />
 
       {/* Objets de scène (arbres, bonhommes de neige, etc.) */}
       <SceneObjects theme={theme} seed={seed} />
@@ -114,9 +114,9 @@ function Scene3D({ theme, transition, seed }) {
       {/* Système de particules */}
       <Particles theme={theme} />
 
-      {/* Sol supplémentaire pour éviter le vide */}
+      {/* Sol supplémentaire pour éviter le vide - MAP AGRANDIE */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -5, 0]} receiveShadow>
-        <planeGeometry args={[200, 200]} />
+        <planeGeometry args={[400, 400]} />
         <meshStandardMaterial color={theme.terrain.color} roughness={1} />
       </mesh>
     </>
@@ -126,7 +126,7 @@ function Scene3D({ theme, transition, seed }) {
 /**
  * Composant Scene principal - Wrapper du Canvas React Three Fiber
  */
-export default function Scene({ theme, transition, seed }) {
+export default function Scene({ theme, transition, seed, playerColor }) {
   return (
     <Canvas
       shadows
@@ -144,7 +144,7 @@ export default function Scene({ theme, transition, seed }) {
         zIndex: 0
       }}
     >
-      <Scene3D theme={theme} transition={transition} seed={seed} />
+      <Scene3D theme={theme} transition={transition} seed={seed} playerColor={playerColor} />
     </Canvas>
   );
 }

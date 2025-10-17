@@ -210,21 +210,21 @@ export default function SceneObjects({ theme, seed = 0 }) {
       return hash - Math.floor(hash);
     };
 
-    // Nombre d'objets selon le thème
+    // Nombre d'objets selon le thème - AUGMENTÉ pour la grande map
     const objectCount = {
-      foret: 30,
-      desert: 20,
-      neige: 15,
-      volcan: 25,
-      cyberpunk: 20,
-      ocean: 25
+      foret: 100,
+      desert: 70,
+      neige: 50,
+      volcan: 80,
+      cyberpunk: 60,
+      ocean: 75
     };
 
-    const count = objectCount[theme.key] || 20;
+    const count = objectCount[theme.key] || 60;
 
     for (let i = 0; i < count; i++) {
       const angle = random(i, seed) * Math.PI * 2;
-      const distance = 10 + random(i + 100, seed) * 30;
+      const distance = 15 + random(i + 100, seed) * 120; // Distance beaucoup plus grande
       const x = Math.cos(angle) * distance;
       const z = Math.sin(angle) * distance;
 
