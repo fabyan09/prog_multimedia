@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/prog_multimedia/',
+  base: '/', // Base à la racine car GitHub Pages sert déjà depuis /prog_multimedia/
   server: {
     port: 3000,
     open: true
