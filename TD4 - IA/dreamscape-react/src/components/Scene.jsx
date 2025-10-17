@@ -73,7 +73,7 @@ function Lights({ theme }) {
 /**
  * Composant Scene3D - Contenu de la scène 3D
  */
-function Scene3D({ theme, transition }) {
+function Scene3D({ theme, transition, seed }) {
   return (
     <>
       {/* Configuration du fog (brouillard) */}
@@ -101,7 +101,7 @@ function Scene3D({ theme, transition }) {
       <CameraRig />
 
       {/* Terrain procédural */}
-      <Terrain theme={theme} transition={transition} />
+      <Terrain theme={theme} transition={transition} seed={seed} />
 
       {/* Système de particules */}
       <Particles theme={theme} />
@@ -118,7 +118,7 @@ function Scene3D({ theme, transition }) {
 /**
  * Composant Scene principal - Wrapper du Canvas React Three Fiber
  */
-export default function Scene({ theme, transition }) {
+export default function Scene({ theme, transition, seed }) {
   return (
     <Canvas
       shadows
@@ -136,7 +136,7 @@ export default function Scene({ theme, transition }) {
         zIndex: 0
       }}
     >
-      <Scene3D theme={theme} transition={transition} />
+      <Scene3D theme={theme} transition={transition} seed={seed} />
     </Canvas>
   );
 }

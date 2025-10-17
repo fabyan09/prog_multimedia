@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { generateTerrainHeight } from '../utils/noise';
@@ -7,17 +7,26 @@ import { generateTerrainHeight } from '../utils/noise';
  * Composant Terrain - Génère un terrain procédural 3D
  * Utilise un PlaneGeometry subdivisé et modifie les hauteurs via Simplex Noise
  */
-export default function Terrain({ theme, transition = false }) {
+export default function Terrain({ theme, transition = false, seed = 0 }) {
   const meshRef = useRef();
   const materialRef = useRef();
+  const geometryRef = useRef();
 
   // Paramètres du terrain
   const width = 100;
   const height = 100;
   const segments = 100; // Plus il y a de segments, plus le terrain est détaillé
 
-  // Génération du terrain basé sur le thème
-  const geometry = useMemo(() => {
+  // Génération et mise à jour du terrain quand le thème ou la seed change
+  useEffect(() => {
+    if (!meshRef.current) return;
+
+    // Dispose de l'ancienne géométrie si elle existe
+    if (geometryRef.current) {
+      geometryRef.current.dispose();
+    }
+
+    // Création d'une nouvelle géométrie
     const geo = new THREE.PlaneGeometry(width, height, segments, segments);
 
     // Récupération des paramètres du thème
@@ -26,15 +35,18 @@ export default function Terrain({ theme, transition = false }) {
     // Position des vertices pour manipulation
     const positions = geo.attributes.position.array;
 
+    // Offset basé sur la seed pour générer des terrains différents
+    const seedOffset = seed * 1000;
+
     // Modification de la hauteur (Z) de chaque vertex selon le bruit procédural
     for (let i = 0; i < positions.length; i += 3) {
       const x = positions[i];
       const y = positions[i + 1];
 
-      // Calcul de la hauteur via Simplex Noise
+      // Calcul de la hauteur via Simplex Noise avec offset de seed
       const terrainHeight = generateTerrainHeight(
-        x * 0.1,
-        y * 0.1,
+        (x + seedOffset) * 0.1,
+        (y + seedOffset) * 0.1,
         scale,
         amplitude,
         octaves
@@ -46,8 +58,17 @@ export default function Terrain({ theme, transition = false }) {
     // Recalcul des normales pour un éclairage correct
     geo.computeVertexNormals();
 
-    return geo;
-  }, [theme]);
+    // Mise à jour de la géométrie du mesh
+    meshRef.current.geometry = geo;
+    geometryRef.current = geo;
+
+    // Cleanup: dispose de la géométrie quand le composant est démonté
+    return () => {
+      if (geometryRef.current) {
+        geometryRef.current.dispose();
+      }
+    };
+  }, [theme, seed]);
 
   // Animation douce du terrain (oscillation légère)
   useFrame((state) => {
@@ -86,7 +107,6 @@ export default function Terrain({ theme, transition = false }) {
   return (
     <mesh
       ref={meshRef}
-      geometry={geometry}
       rotation={[-Math.PI / 2, 0, 0]} // Rotation pour mettre le terrain à plat
       position={[0, -2, 0]}
       receiveShadow

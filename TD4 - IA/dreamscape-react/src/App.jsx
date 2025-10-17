@@ -24,6 +24,9 @@ function App() {
   // État pour l'animation d'entrée
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Clé de régénération pour forcer un nouveau monde même avec le même thème
+  const [regenerationKey, setRegenerationKey] = useState(0);
+
   // Animation d'entrée au chargement
   useEffect(() => {
     setTimeout(() => setIsLoaded(true), 100);
@@ -42,6 +45,9 @@ function App() {
     setTimeout(() => {
       const newTheme = getThemeFromKeyword(keyword);
       setCurrentTheme(newTheme);
+
+      // Incrémentation de la clé de régénération pour forcer un nouveau terrain
+      setRegenerationKey(prev => prev + 1);
 
       // Sauvegarde dans le localStorage
       localStorage.setItem('dreamscape-theme', keyword);
@@ -64,7 +70,7 @@ function App() {
   return (
     <div className={`app ${isLoaded ? 'loaded' : ''}`}>
       {/* Scène 3D en arrière-plan */}
-      <Scene theme={currentTheme} transition={isTransitioning} />
+      <Scene theme={currentTheme} transition={isTransitioning} seed={regenerationKey} />
 
       {/* Interface utilisateur flottante */}
       <div className="ui-container">
